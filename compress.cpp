@@ -111,11 +111,10 @@ string compress(const string& source) {
     return header + "#" + binaryToString(encodedString);
 }
 
-// Decompress function
 string decompress(const string& source) {
     if (source.empty()) return "";
 
-    // Extract Huffman Codes
+    // Locate the header delimiter #
     size_t delimiter = source.find('#');
     if (delimiter == string::npos) return "";
 
@@ -123,27 +122,32 @@ string decompress(const string& source) {
     string encodedData = source.substr(delimiter + 1);
     string binaryData = stringToBinary(encodedData);
 
-    // Reconstruct Huffman Code Map
-    reverseHuffmanCodes.clear();
+    // Step 1: Rebuild the Huffman Table from the header
+    unordered_map<string, char> huffmanTable;
     size_t pos = 0;
+    
     while (pos < header.size()) {
         size_t colon = header.find(':', pos);
-        size_t bar = header.find('|', colon);
-        if (colon == string::npos || bar == string::npos) break;
+        if (colon == string::npos) break;
 
-        char c = header[pos];
-        string code = header.substr(colon + 1, bar - colon - 1);
-        reverseHuffmanCodes[code] = c;
+        size_t bar = header.find('|', colon);
+        if (bar == string::npos) break;
+
+        char c = header[pos]; // The character
+        string code = header.substr(colon + 1, bar - colon - 1); // The Huffman code
+
+        huffmanTable[code] = c;
         pos = bar + 1;
     }
+    // Step 2: Decode the binary stream using the Huffman Table
+    string decodedString;
+    string currentCode;
 
-    // Decode the binary data using the Huffman Map
-    string decodedString, temp;
     for (char bit : binaryData) {
-        temp += bit;
-        if (reverseHuffmanCodes.count(temp)) {
-            decodedString += reverseHuffmanCodes[temp];
-            temp.clear();
+        currentCode += bit;
+        if (huffmanTable.count(currentCode)) {
+            decodedString += huffmanTable[currentCode];
+            currentCode.clear();
         }
     }
 
