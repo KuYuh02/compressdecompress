@@ -1,67 +1,95 @@
 #include <iostream>
-#include <zlib.h>
-#include <stdexcept>
+#include <unordered_map>
+#include <queue>
+#include <vector>
+#include <bitset>
 #include <sstream>
-#include <cstring>
 
-std::string compress(const std::string& input, int level = Z_BEST_COMPRESSION) {
-    z_stream stream;
-    memset(&stream, 0, sizeof(stream));
-    if (deflateInit(&stream, level) != Z_OK) {
-        throw std::runtime_error("Failed to initialize compression.");
+struct Node {
+    char ch;
+    int freq;
+    Node* left;
+    Node* right;
+    Node(char c, int f) : ch(c), freq(f), left(nullptr), right(nullptr) {}
+};
+
+struct Compare {
+    bool operator()(Node* a, Node* b) {
+        return a->freq > b->freq;
     }
+};
 
-    stream.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(input.data()));
-    stream.avail_in = input.size();
+std::string compress(const std::string& source) {
+    std::unordered_map<char, int> freqMap;
+    for (char ch : source) {
+        freqMap[ch]++;
+    }
     
-    char buffer[10240];
-    std::string compressedData;
-    int status;
+    std::priority_queue<Node*, std::vector<Node*>, Compare> minHeap;
+    for (const auto& pair : freqMap) {
+        minHeap.push(new Node(pair.first, pair.second));
+    }
     
-    do {
-        stream.next_out = reinterpret_cast<Bytef*>(buffer);
-        stream.avail_out = sizeof(buffer);
-        status = deflate(&stream, Z_FINISH);
-        if (compressedData.size() < stream.total_out) {
-            compressedData.append(buffer, stream.total_out - compressedData.size());
+    while (minHeap.size() > 1) {
+        Node* left = minHeap.top(); minHeap.pop();
+        Node* right = minHeap.top(); minHeap.pop();
+        Node* newNode = new Node('\0', left->freq + right->freq);
+        newNode->left = left;
+        newNode->right = right;
+        minHeap.push(newNode);
+    }
+    
+    Node* root = minHeap.top();
+    std::unordered_map<char, std::string> huffmanCodes;
+    std::function<void(Node*, std::string)> encode = [&](Node* node, std::string str) {
+        if (!node) return;
+        if (node->ch != '\0') {
+            huffmanCodes[node->ch] = str;
         }
-    } while (status == Z_OK);
+        encode(node->left, str + "0");
+        encode(node->right, str + "1");
+    };
+    encode(root, "");
     
-    deflateEnd(&stream);
-    if (status != Z_STREAM_END) {
-        throw std::runtime_error("Error occurred during compression.");
+    std::ostringstream header;
+    header << huffmanCodes.size() << " ";
+    for (const auto& pair : huffmanCodes) {
+        header << pair.first << " " << pair.second << " ";
     }
     
-    return compressedData;
+    std::ostringstream encodedString;
+    for (char ch : source) {
+        encodedString << huffmanCodes[ch];
+    }
+    
+    return header.str() + "#" + encodedString.str();
 }
 
-std::string decompress(const std::string& input) {
-    z_stream stream;
-    memset(&stream, 0, sizeof(stream));
-    if (inflateInit(&stream) != Z_OK) {
-        throw std::runtime_error("Failed to initialize decompression.");
+std::string decompress(const std::string& source) {
+    size_t pos = source.find('#');
+    if (pos == std::string::npos) return "";
+    
+    std::istringstream headerStream(source.substr(0, pos));
+    std::string encodedData = source.substr(pos + 1);
+    
+    std::unordered_map<std::string, char> reverseHuffmanCodes;
+    size_t tableSize;
+    headerStream >> tableSize;
+    for (size_t i = 0; i < tableSize; i++) {
+        char ch;
+        std::string code;
+        headerStream >> ch >> code;
+        reverseHuffmanCodes[code] = ch;
     }
     
-    stream.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(input.data()));
-    stream.avail_in = input.size();
-    
-    char buffer[10240];
-    std::string decompressedData;
-    int status;
-    
-    do {
-        stream.next_out = reinterpret_cast<Bytef*>(buffer);
-        stream.avail_out = sizeof(buffer);
-        status = inflate(&stream, 0);
-        if (decompressedData.size() < stream.total_out) {
-            decompressedData.append(buffer, stream.total_out - decompressedData.size());
+    std::string decoded, current;
+    for (char bit : encodedData) {
+        current += bit;
+        if (reverseHuffmanCodes.count(current)) {
+            decoded += reverseHuffmanCodes[current];
+            current.clear();
         }
-    } while (status == Z_OK);
-    
-    inflateEnd(&stream);
-    if (status != Z_STREAM_END) {
-        throw std::runtime_error("Error occurred during decompression.");
     }
     
-    return decompressedData;
+    return decoded;
 }
