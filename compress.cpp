@@ -1,41 +1,67 @@
-#include <string>
-#include <unordered_map>
+#include <iostream>
+#include <zlib.h>
+#include <stdexcept>
+#include <sstream>
+#include <cstring>
 
-using namespace std;
-
-// Function to create a frequency table for characters in the input string
-unordered_map<char, int> build_frequency_table(const string& source) {
-    unordered_map<char, int> freq_table;
-    for (char c : source) {
-        freq_table[c]++;
+std::string compress(const std::string& input, int level = Z_BEST_COMPRESSION) {
+    z_stream stream;
+    memset(&stream, 0, sizeof(stream));
+    if (deflateInit(&stream, level) != Z_OK) {
+        throw std::runtime_error("Failed to initialize compression.");
     }
-    return freq_table;
-}
 
-// Function to compress a string using a frequency table
-string compress(const string& source) {
-    unordered_map<char, int> freq_table = build_frequency_table(source);
+    stream.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(input.data()));
+    stream.avail_in = input.size();
     
-    string compressed;
-    for (char c : source) {
-        compressed += c + to_string(freq_table[c]);
+    char buffer[10240];
+    std::string compressedData;
+    int status;
+    
+    do {
+        stream.next_out = reinterpret_cast<Bytef*>(buffer);
+        stream.avail_out = sizeof(buffer);
+        status = deflate(&stream, Z_FINISH);
+        if (compressedData.size() < stream.total_out) {
+            compressedData.append(buffer, stream.total_out - compressedData.size());
+        }
+    } while (status == Z_OK);
+    
+    deflateEnd(&stream);
+    if (status != Z_STREAM_END) {
+        throw std::runtime_error("Error occurred during compression.");
     }
-    return compressed;
+    
+    return compressedData;
 }
 
-// Function to decompress a compressed string
-string decompress(const string& compressed) {
-    string decompressed;
-    for (int i = 0; i < compressed.size(); i++) {
-        char ch = compressed[i];
-        int count = 0;
-        while (isdigit(compressed[++i])) {
-            count = count * 10 + (compressed[i] - '0');
-        }
-        i--; // Adjust index to point back to the character
-        for (int j = 0; j < count; j++) {
-            decompressed += ch;
-        }
+std::string decompress(const std::string& input) {
+    z_stream stream;
+    memset(&stream, 0, sizeof(stream));
+    if (inflateInit(&stream) != Z_OK) {
+        throw std::runtime_error("Failed to initialize decompression.");
     }
-    return decompressed;
+    
+    stream.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(input.data()));
+    stream.avail_in = input.size();
+    
+    char buffer[10240];
+    std::string decompressedData;
+    int status;
+    
+    do {
+        stream.next_out = reinterpret_cast<Bytef*>(buffer);
+        stream.avail_out = sizeof(buffer);
+        status = inflate(&stream, 0);
+        if (decompressedData.size() < stream.total_out) {
+            decompressedData.append(buffer, stream.total_out - decompressedData.size());
+        }
+    } while (status == Z_OK);
+    
+    inflateEnd(&stream);
+    if (status != Z_STREAM_END) {
+        throw std::runtime_error("Error occurred during decompression.");
+    }
+    
+    return decompressedData;
 }
