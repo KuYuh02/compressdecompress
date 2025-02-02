@@ -5,25 +5,25 @@
 #include <bitset>
 #include <sstream>
 
-struct Node {
-    char ch;
-    int freq;
-    Node* left;
-    Node* right;
-    Node(char c, int f) : ch(c), freq(f), left(nullptr), right(nullptr) {}
-};
-
-struct Compare {
-    bool operator()(Node* a, Node* b) {
-        return a->freq > b->freq;
-    }
-};
-
-void buildHuffmanTree(const std::string& source, std::unordered_map<char, std::string>& huffmanCodes, std::string& encodedString) {
+std::string compress(const std::string& source) {
     std::unordered_map<char, int> freqMap;
     for (char ch : source) {
         freqMap[ch]++;
     }
+    
+    struct Node {
+        char ch;
+        int freq;
+        Node* left;
+        Node* right;
+        Node(char c, int f) : ch(c), freq(f), left(nullptr), right(nullptr) {}
+    };
+    
+    struct Compare {
+        bool operator()(Node* a, Node* b) {
+            return a->freq > b->freq;
+        }
+    };
     
     std::priority_queue<Node*, std::vector<Node*>, Compare> minHeap;
     for (const auto& pair : freqMap) {
@@ -40,6 +40,7 @@ void buildHuffmanTree(const std::string& source, std::unordered_map<char, std::s
     }
     
     Node* root = minHeap.top();
+    std::unordered_map<char, std::string> huffmanCodes;
     std::function<void(Node*, std::string)> encode = [&](Node* node, std::string str) {
         if (!node) return;
         if (node->ch != '\0') {
@@ -48,17 +49,12 @@ void buildHuffmanTree(const std::string& source, std::unordered_map<char, std::s
         encode(node->left, str + "0");
         encode(node->right, str + "1");
     };
-    
     encode(root, "");
+    
+    std::string encodedString;
     for (char ch : source) {
         encodedString += huffmanCodes[ch];
     }
-}
-
-std::string compress(const std::string& source) {
-    std::unordered_map<char, std::string> huffmanCodes;
-    std::string encodedString;
-    buildHuffmanTree(source, huffmanCodes, encodedString);
     
     std::string header;
     for (const auto& pair : huffmanCodes) {
