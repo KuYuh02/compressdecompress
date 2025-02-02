@@ -110,8 +110,8 @@ std::string decompress(const std::string& source) {
     std::string header = source.substr(0, newlinePos);
     std::string compressedData = source.substr(newlinePos + 1);
 
+    // Build a reverse map for Huffman codes to characters
     std::unordered_map<std::string, char> reverseHuffmanCodes;
-
     std::stringstream headerStream(header);
     std::string codePair;
     while (headerStream >> codePair) {
