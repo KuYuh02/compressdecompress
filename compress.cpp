@@ -9,8 +9,8 @@
 // Huffman Node Structure
 class HuffmanNode {
 public:
-    char ch;  // character
-    int freq; // frequency of character
+    char ch;
+    int freq;
     HuffmanNode* left;
     HuffmanNode* right;
 
@@ -20,7 +20,7 @@ public:
     // Comparator for the priority queue (min-heap)
     struct Compare {
         bool operator()(HuffmanNode* a, HuffmanNode* b) {
-            return a->freq > b->freq;  // Min-heap based on frequency
+            return a->freq > b->freq;
         }
     };
 };
