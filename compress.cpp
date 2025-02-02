@@ -1,137 +1,95 @@
 #include <iostream>
-#include <string>
-#include <unordered_map>
 #include <queue>
+#include <unordered_map>
 #include <vector>
 #include <bitset>
 #include <sstream>
 
-// Huffman Node Structure
-class HuffmanNode {
-public:
-    char ch;
-    int freq;
-    HuffmanNode* left;
-    HuffmanNode* right;
-
-    HuffmanNode(char character, int frequency)
-        : ch(character), freq(frequency), left(nullptr), right(nullptr) {}
-
-    // Comparator for the priority queue (min-heap)
+std::string compress(const std::string& source) {
+    std::unordered_map<char, int> freqMap;
+    for (char ch : source) {
+        freqMap[ch]++;
+    }
+    
+    struct Node {
+        char ch;
+        int freq;
+        Node* left;
+        Node* right;
+        Node(char c, int f) : ch(c), freq(f), left(nullptr), right(nullptr) {}
+    };
+    
     struct Compare {
-        bool operator()(HuffmanNode* a, HuffmanNode* b) {
+        bool operator()(Node* a, Node* b) {
             return a->freq > b->freq;
         }
     };
-};
-
-// Function to build the frequency table for the input string
-std::unordered_map<char, int> buildFrequencyTable(const std::string& source) {
-    std::unordered_map<char, int> frequencyTable;
-    for (char ch : source) {
-        frequencyTable[ch]++;
+    
+    std::priority_queue<Node*, std::vector<Node*>, Compare> minHeap;
+    for (const auto& pair : freqMap) {
+        minHeap.push(new Node(pair.first, pair.second));
     }
-    return frequencyTable;
-}
-
-// Function to build the Huffman tree from the frequency table
-HuffmanNode* buildHuffmanTree(const std::unordered_map<char, int>& frequencyTable) {
-    std::priority_queue<HuffmanNode*, std::vector<HuffmanNode*>, HuffmanNode::Compare> pq;
-
-    // Create a node for each character and insert into the priority queue
-    for (const auto& entry : frequencyTable) {
-        pq.push(new HuffmanNode(entry.first, entry.second));
+    
+    while (minHeap.size() > 1) {
+        Node* left = minHeap.top(); minHeap.pop();
+        Node* right = minHeap.top(); minHeap.pop();
+        Node* newNode = new Node('\0', left->freq + right->freq);
+        newNode->left = left;
+        newNode->right = right;
+        minHeap.push(newNode);
     }
-
-    // Build the tree by combining two least frequent nodes
-    while (pq.size() > 1) {
-        HuffmanNode* left = pq.top();
-        pq.pop();
-        HuffmanNode* right = pq.top();
-        pq.pop();
-
-        HuffmanNode* merged = new HuffmanNode('\0', left->freq + right->freq);  // Internal node
-        merged->left = left;
-        merged->right = right;
-
-        pq.push(merged);
-    }
-
-    return pq.top();  // Root of the Huffman Tree
-}
-
-// Function to generate the Huffman codes by traversing the tree
-void generateHuffmanCodes(HuffmanNode* node, const std::string& code,
-                           std::unordered_map<char, std::string>& huffmanCodes) {
-    if (!node) return;
-
-    // If it's a leaf node, store the code
-    if (node->ch != '\0') {
-        huffmanCodes[node->ch] = code;
-    }
-
-    // Recur for left and right subtrees
-    generateHuffmanCodes(node->left, code + "0", huffmanCodes);
-    generateHuffmanCodes(node->right, code + "1", huffmanCodes);
-}
-
-// Function to compress the string using Huffman Encoding
-std::string compress(const std::string& source) {
-    // Step 1: Build the frequency table
-    std::unordered_map<char, int> frequencyTable = buildFrequencyTable(source);
-
-    // Step 2: Build the Huffman tree
-    HuffmanNode* root = buildHuffmanTree(frequencyTable);
-
-    // Step 3: Generate the Huffman codes
+    
+    Node* root = minHeap.top();
     std::unordered_map<char, std::string> huffmanCodes;
-    generateHuffmanCodes(root, "", huffmanCodes);
-
-    // Step 4: Encode the source string
-    std::string compressedData;
+    std::function<void(Node*, std::string)> encode = [&](Node* node, std::string str) {
+        if (!node) return;
+        if (node->ch != '\0') {
+            huffmanCodes[node->ch] = str;
+        }
+        encode(node->left, str + "0");
+        encode(node->right, str + "1");
+    };
+    encode(root, "");
+    
+    std::ostringstream header;
+    header << huffmanCodes.size() << " ";
+    for (const auto& pair : huffmanCodes) {
+        header << pair.first << " " << pair.second << " ";
+    }
+    
+    std::ostringstream encodedString;
     for (char ch : source) {
-        compressedData += huffmanCodes[ch];
+        encodedString << huffmanCodes[ch];
     }
-
-    // Step 5: Prepare the header with Huffman codes and their characters
-    std::stringstream headerStream;
-    for (const auto& entry : huffmanCodes) {
-        headerStream << entry.first << ":" << entry.second << " ";
-    }
-
-    // Step 6: Return the header + compressed data as the final output
-    return headerStream.str() + "\n" + compressedData;
+    
+    return header.str() + "#" + encodedString.str();
 }
 
-// Function to decompress the string using Huffman Encoding
 std::string decompress(const std::string& source) {
-    // Step 1: Parse the header and extract the Huffman codes
-    size_t newlinePos = source.find("\n");
-    std::string header = source.substr(0, newlinePos);
-    std::string compressedData = source.substr(newlinePos + 1);
-
-    // Build a reverse map for Huffman codes to characters
+    size_t pos = source.find('#');
+    if (pos == std::string::npos) return "";
+    
+    std::istringstream headerStream(source.substr(0, pos));
+    std::string encodedData = source.substr(pos + 1);
+    
     std::unordered_map<std::string, char> reverseHuffmanCodes;
-    std::stringstream headerStream(header);
-    std::string codePair;
-    while (headerStream >> codePair) {
-        size_t colonPos = codePair.find(":");
-        char ch = codePair[0];
-        std::string code = codePair.substr(colonPos + 1);
-
+    size_t tableSize;
+    headerStream >> tableSize;
+    for (size_t i = 0; i < tableSize; i++) {
+        char ch;
+        std::string code;
+        headerStream >> ch >> code;
         reverseHuffmanCodes[code] = ch;
     }
-
-    // Step 2: Decode the compressed data
-    std::string decodedString;
-    std::string currentCode;
-    for (char bit : compressedData) {
-        currentCode += bit;
-        if (reverseHuffmanCodes.find(currentCode) != reverseHuffmanCodes.end()) {
-            decodedString += reverseHuffmanCodes[currentCode];
-            currentCode.clear();
+    
+    std::string decoded, current;
+    for (char bit : encodedData) {
+        current += bit;
+        if (reverseHuffmanCodes.count(current)) {
+            decoded += reverseHuffmanCodes[current];
+            current.clear();
         }
     }
-
-    return decodedString;
+    
+    return decoded;
 }
