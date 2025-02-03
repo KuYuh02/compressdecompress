@@ -4,43 +4,43 @@
 #include <queue>
 #include <bitset>
 #include <sstream>
+#include <memory>
 
 struct Node {
     char ch;
     int freq;
-    Node* left;
-    Node* right;
+    std::shared_ptr<Node> left, right;
     Node(char c, int f) : ch(c), freq(f), left(nullptr), right(nullptr) {}
 };
 
 struct Compare {
-    bool operator()(Node* a, Node* b) {
+    bool operator()(std::shared_ptr<Node> a, std::shared_ptr<Node> b) {
         return a->freq > b->freq;
     }
 };
 
-void buildHuffmanTree(const std::string& text, std::unordered_map<char, std::string>& huffCodes, Node*& root) {
+void buildHuffmanTree(const std::string& text, std::unordered_map<char, std::string>& huffCodes, std::shared_ptr<Node>& root) {
     std::unordered_map<char, int> freqMap;
     for (char c : text) {
         freqMap[c]++;
     }
 
-    std::priority_queue<Node*, std::vector<Node*>, Compare> pq;
+    std::priority_queue<std::shared_ptr<Node>, std::vector<std::shared_ptr<Node>>, Compare> pq;
     for (auto& pair : freqMap) {
-        pq.push(new Node(pair.first, pair.second));
+        pq.push(std::make_shared<Node>(pair.first, pair.second));
     }
 
     while (pq.size() > 1) {
-        Node* left = pq.top(); pq.pop();
-        Node* right = pq.top(); pq.pop();
-        Node* parent = new Node('\0', left->freq + right->freq);
+        auto left = pq.top(); pq.pop();
+        auto right = pq.top(); pq.pop();
+        auto parent = std::make_shared<Node>('\0', left->freq + right->freq);
         parent->left = left;
         parent->right = right;
         pq.push(parent);
     }
     root = pq.top();
     
-    std::function<void(Node*, std::string)> generateCodes = [&](Node* node, std::string code) {
+    std::function<void(std::shared_ptr<Node>, std::string)> generateCodes = [&](std::shared_ptr<Node> node, std::string code) {
         if (!node) return;
         if (node->ch != '\0') {
             huffCodes[node->ch] = code;
@@ -52,23 +52,20 @@ void buildHuffmanTree(const std::string& text, std::unordered_map<char, std::str
     generateCodes(root, "");
 }
 
-void serializeTree(Node* root, std::string& encodedTree) {
+void serializeTree(std::shared_ptr<Node> root, std::string& encodedTree) {
     if (!root) {
-        encodedTree += "#";
+        encodedTree += "0";
         return;
     }
-    if (root->ch != '\0') {
-        encodedTree += "1" + std::string(1, root->ch);
-    } else {
-        encodedTree += "0";
-    }
+    encodedTree += "1";
+    encodedTree += root->ch;
     serializeTree(root->left, encodedTree);
     serializeTree(root->right, encodedTree);
 }
 
 std::string compress(const std::string& source) {
     std::unordered_map<char, std::string> huffCodes;
-    Node* root = nullptr;
+    std::shared_ptr<Node> root = nullptr;
     buildHuffmanTree(source, huffCodes, root);
     
     std::string encodedTree;
@@ -89,16 +86,13 @@ std::string compress(const std::string& source) {
     return oss.str();
 }
 
-Node* deserializeTree(std::istringstream& iss) {
+std::shared_ptr<Node> deserializeTree(std::istringstream& iss) {
     char marker;
-    iss >> marker;
-    if (marker == '#') return nullptr;
-    if (marker == '1') {
-        char ch;
-        iss >> ch;
-        return new Node(ch, 0);
-    }
-    Node* node = new Node('\0', 0);
+    iss.get(marker);
+    if (marker == '0') return nullptr;
+    char ch;
+    iss.get(ch);
+    auto node = std::make_shared<Node>(ch, 0);
     node->left = deserializeTree(iss);
     node->right = deserializeTree(iss);
     return node;
@@ -107,7 +101,7 @@ Node* deserializeTree(std::istringstream& iss) {
 std::string decompress(const std::string& source) {
     size_t delim = source.find('|');
     std::istringstream iss(source.substr(0, delim));
-    Node* root = deserializeTree(iss);
+    std::shared_ptr<Node> root = deserializeTree(iss);
     
     std::string bitString;
     for (size_t i = delim + 1; i < source.size(); ++i) {
@@ -116,7 +110,7 @@ std::string decompress(const std::string& source) {
     }
     
     std::string decoded;
-    Node* current = root;
+    auto current = root;
     for (char bit : bitString) {
         current = (bit == '0') ? current->left : current->right;
         if (!current->left && !current->right) {
