@@ -19,7 +19,7 @@ struct Compare {
     }
 };
 
-void buildHuffmanTree(const std::string& text, std::unordered_map<char, std::string>& huffCodes, std::string& encodedTree) {
+void buildHuffmanTree(const std::string& text, std::unordered_map<char, std::string>& huffCodes, Node*& root) {
     std::unordered_map<char, int> freqMap;
     for (char c : text) {
         freqMap[c]++;
@@ -38,14 +38,12 @@ void buildHuffmanTree(const std::string& text, std::unordered_map<char, std::str
         parent->right = right;
         pq.push(parent);
     }
-
-    Node* root = pq.top();
+    root = pq.top();
     
     std::function<void(Node*, std::string)> generateCodes = [&](Node* node, std::string code) {
         if (!node) return;
         if (node->ch != '\0') {
             huffCodes[node->ch] = code;
-            encodedTree += node->ch + code + " ";
         }
         generateCodes(node->left, code + "0");
         generateCodes(node->right, code + "1");
@@ -54,10 +52,27 @@ void buildHuffmanTree(const std::string& text, std::unordered_map<char, std::str
     generateCodes(root, "");
 }
 
+void serializeTree(Node* root, std::string& encodedTree) {
+    if (!root) {
+        encodedTree += "#";
+        return;
+    }
+    if (root->ch != '\0') {
+        encodedTree += "1" + std::string(1, root->ch);
+    } else {
+        encodedTree += "0";
+    }
+    serializeTree(root->left, encodedTree);
+    serializeTree(root->right, encodedTree);
+}
+
 std::string compress(const std::string& source) {
     std::unordered_map<char, std::string> huffCodes;
+    Node* root = nullptr;
+    buildHuffmanTree(source, huffCodes, root);
+    
     std::string encodedTree;
-    buildHuffmanTree(source, huffCodes, encodedTree);
+    serializeTree(root, encodedTree);
     
     std::string compressedData;
     for (char c : source) {
@@ -74,17 +89,25 @@ std::string compress(const std::string& source) {
     return oss.str();
 }
 
+Node* deserializeTree(std::istringstream& iss) {
+    char marker;
+    iss >> marker;
+    if (marker == '#') return nullptr;
+    if (marker == '1') {
+        char ch;
+        iss >> ch;
+        return new Node(ch, 0);
+    }
+    Node* node = new Node('\0', 0);
+    node->left = deserializeTree(iss);
+    node->right = deserializeTree(iss);
+    return node;
+}
+
 std::string decompress(const std::string& source) {
     size_t delim = source.find('|');
-    std::unordered_map<std::string, char> decodeMap;
-    
     std::istringstream iss(source.substr(0, delim));
-    std::string token;
-    while (iss >> token) {
-        char ch = token[0];
-        std::string code = token.substr(1);
-        decodeMap[code] = ch;
-    }
+    Node* root = deserializeTree(iss);
     
     std::string bitString;
     for (size_t i = delim + 1; i < source.size(); ++i) {
@@ -93,12 +116,12 @@ std::string decompress(const std::string& source) {
     }
     
     std::string decoded;
-    std::string current;
+    Node* current = root;
     for (char bit : bitString) {
-        current += bit;
-        if (decodeMap.count(current)) {
-            decoded += decodeMap[current];
-            current.clear();
+        current = (bit == '0') ? current->left : current->right;
+        if (!current->left && !current->right) {
+            decoded += current->ch;
+            current = root;
         }
     }
     
