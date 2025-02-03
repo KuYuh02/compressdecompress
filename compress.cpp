@@ -61,7 +61,7 @@ std::string compress(const std::string& source) {
     std::ostringstream freqStream;
     freqStream << freqMap.size() << " ";
     for (auto& pair : freqMap) {
-        freqStream << pair.first << pair.second << " ";
+        freqStream << pair.first << " " << pair.second << " ";
     }
     
     std::string compressedData;
@@ -70,6 +70,12 @@ std::string compress(const std::string& source) {
     }
     
     std::ostringstream bitStream;
+    int padding = 8 - (compressedData.size() % 8);
+    for (int i = 0; i < padding; ++i) {
+        compressedData += "0";
+    }
+    bitStream << padding << " ";
+    
     for (size_t i = 0; i < compressedData.size(); i += 8) {
         std::bitset<8> bits(compressedData.substr(i, 8));
         bitStream << static_cast<char>(bits.to_ulong());
@@ -111,10 +117,18 @@ std::string decompress(const std::string& source) {
     
     Node* root = rebuildHuffmanTree(freqMap);
     
+    std::istringstream bitStream(source.substr(delim + 1));
+    int padding;
+    bitStream >> padding;
+    
     std::string bitString;
-    for (size_t i = delim + 1; i < source.size(); ++i) {
-        std::bitset<8> bits(static_cast<unsigned char>(source[i]));
-        bitString += bits.to_string();
+    char ch;
+    while (bitStream.get(ch)) {
+        bitString += std::bitset<8>(static_cast<unsigned char>(ch)).to_string();
+    }
+    
+    if (padding > 0) {
+        bitString = bitString.substr(0, bitString.size() - padding);
     }
     
     std::string decoded;
