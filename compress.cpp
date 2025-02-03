@@ -1,4 +1,5 @@
 #include <iostream>
+#include <string>
 #include <unordered_map>
 #include <vector>
 #include <queue>
@@ -6,49 +7,43 @@
 #include <sstream>
 #include <cstdint>
 
-class HuffmanNode {
-public:
-    char ch;
+struct Node {
+    char data;
     int freq;
-    HuffmanNode* left;
-    HuffmanNode* right;
-    HuffmanNode(char c, int f) : ch(c), freq(f), left(nullptr), right(nullptr) {}
-    ~HuffmanNode() {
-        delete left;
-        delete right;
-    }
+    Node* left;
+    Node* right;
+    Node(char d, int f) : data(d), freq(f), left(nullptr), right(nullptr) {}
 };
 
-class CompareNodes {
-public:
-    bool operator()(HuffmanNode* a, HuffmanNode* b) {
+struct Compare {
+    bool operator()(Node* a, Node* b) {
         return a->freq > b->freq;
     }
 };
 
-std::unordered_map<char, std::string> generateHuffmanCodes(HuffmanNode* root) {
-    std::unordered_map<char, std::string> huffCodes;
-    std::function<void(HuffmanNode*, std::string)> traverse = [&](HuffmanNode* node, std::string code) {
+std::unordered_map<char, std::string> generateHuffmanCodes(Node* root) {
+    std::unordered_map<char, std::string> huffmanCodes;
+    std::function<void(Node*, std::string)> traverse = [&](Node* node, std::string code) {
         if (!node) return;
-        if (node->ch != '\0') {
-            huffCodes[node->ch] = code;
+        if (!node->left && !node->right) {
+            huffmanCodes[node->data] = code;
         }
         traverse(node->left, code + "0");
         traverse(node->right, code + "1");
     };
     traverse(root, "");
-    return huffCodes;
+    return huffmanCodes;
 }
 
-HuffmanNode* buildHuffmanTree(const std::unordered_map<char, int>& freqMap) {
-    std::priority_queue<HuffmanNode*, std::vector<HuffmanNode*>, CompareNodes> pq;
+Node* buildHuffmanTree(const std::unordered_map<char, int>& freqMap) {
+    std::priority_queue<Node*, std::vector<Node*>, Compare> pq;
     for (const auto& pair : freqMap) {
-        pq.push(new HuffmanNode(pair.first, pair.second));
+        pq.push(new Node(pair.first, pair.second));
     }
     while (pq.size() > 1) {
-        HuffmanNode* left = pq.top(); pq.pop();
-        HuffmanNode* right = pq.top(); pq.pop();
-        HuffmanNode* parent = new HuffmanNode('\0', left->freq + right->freq);
+        Node* left = pq.top(); pq.pop();
+        Node* right = pq.top(); pq.pop();
+        Node* parent = new Node('\0', left->freq + right->freq);
         parent->left = left;
         parent->right = right;
         pq.push(parent);
@@ -63,8 +58,8 @@ std::string compress(const std::string& source) {
     for (char c : source) {
         freqMap[c]++;
     }
-    HuffmanNode* root = buildHuffmanTree(freqMap);
-    std::unordered_map<char, std::string> huffCodes = generateHuffmanCodes(root);
+    Node* root = buildHuffmanTree(freqMap);
+    std::unordered_map<char, std::string> huffmanCodes = generateHuffmanCodes(root);
     
     std::ostringstream freqStream;
     freqStream.put(static_cast<char>(freqMap.size()));
@@ -75,7 +70,7 @@ std::string compress(const std::string& source) {
     
     std::string bitString;
     for (char c : source) {
-        bitString += huffCodes[c];
+        bitString += huffmanCodes[c];
     }
     
     int padding = (8 - (bitString.size() % 8)) % 8;
@@ -106,7 +101,7 @@ std::string decompress(const std::string& source) {
         freqMap[ch] = freq;
     }
     
-    HuffmanNode* root = buildHuffmanTree(freqMap);
+    Node* root = buildHuffmanTree(freqMap);
     int padding = freqStream.get();
     
     std::string bitString;
@@ -118,11 +113,11 @@ std::string decompress(const std::string& source) {
     bitString = bitString.substr(0, bitString.size() - padding);
     
     std::string decoded;
-    HuffmanNode* current = root;
+    Node* current = root;
     for (char bit : bitString) {
         current = (bit == '0') ? current->left : current->right;
         if (!current->left && !current->right) {
-            decoded += current->ch;
+            decoded += current->data;
             current = root;
         }
     }
