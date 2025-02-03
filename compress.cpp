@@ -57,6 +57,8 @@ HuffmanNode* buildHuffmanTree(const std::unordered_map<char, int>& freqMap) {
 }
 
 std::string compress(const std::string& source) {
+    if (source.empty()) return "";
+    
     std::unordered_map<char, int> freqMap;
     for (char c : source) {
         freqMap[c]++;
@@ -68,32 +70,31 @@ std::string compress(const std::string& source) {
     freqStream.put(static_cast<char>(freqMap.size()));
     for (const auto& pair : freqMap) {
         freqStream.put(pair.first);
-        freqStream.write(reinterpret_cast<const char*>(&pair.second), sizeof(int));
+        freqStream.write(reinterpret_cast<const char*>(&pair.second), sizeof(pair.second));
     }
     
-    std::vector<uint8_t> compressedData;
     std::string bitString;
     for (char c : source) {
         bitString += huffCodes[c];
     }
+    
     int padding = (8 - (bitString.size() % 8)) % 8;
     bitString.append(padding, '0');
-    compressedData.push_back(static_cast<uint8_t>(padding));
     
+    std::ostringstream bitStream;
+    bitStream.put(static_cast<char>(padding));
     for (size_t i = 0; i < bitString.size(); i += 8) {
         std::bitset<8> bits(bitString.substr(i, 8));
-        compressedData.push_back(static_cast<uint8_t>(bits.to_ulong()));
+        bitStream.put(static_cast<char>(bits.to_ulong()));
     }
     
-    std::ostringstream result;
-    result.write(freqStream.str().c_str(), freqStream.str().size());
-    result.write(reinterpret_cast<const char*>(compressedData.data()), compressedData.size());
-    
     delete root;
-    return result.str();
+    return freqStream.str() + bitStream.str();
 }
 
 std::string decompress(const std::string& source) {
+    if (source.empty()) return "";
+    
     std::istringstream freqStream(source);
     int numEntries = freqStream.get();
     
@@ -101,7 +102,7 @@ std::string decompress(const std::string& source) {
     for (int i = 0; i < numEntries; i++) {
         char ch = freqStream.get();
         int freq;
-        freqStream.read(reinterpret_cast<char*>(&freq), sizeof(int));
+        freqStream.read(reinterpret_cast<char*>(&freq), sizeof(freq));
         freqMap[ch] = freq;
     }
     
