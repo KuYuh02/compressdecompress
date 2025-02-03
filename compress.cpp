@@ -4,23 +4,26 @@
 #include <queue>
 #include <bitset>
 #include <sstream>
-#include <fstream>
 
-struct Node {
-    char ch;
-    int freq;
-    Node* left;
-    Node* right;
-    Node(char c, int f) : ch(c), freq(f), left(nullptr), right(nullptr) {}
-};
-
-struct Compare {
-    bool operator()(Node* a, Node* b) {
-        return a->freq > b->freq;
+std::string compress(const std::string& source) {
+    std::unordered_map<char, int> freqMap;
+    for (char c : source) {
+        freqMap[c]++;
     }
-};
-
-void buildHuffmanTree(const std::string& text, std::unordered_map<char, std::string>& huffCodes, Node*& root, std::unordered_map<char, int>& freqMap) {
+    
+    std::unordered_map<char, std::string> huffCodes;
+    struct Node {
+        char ch;
+        int freq;
+        Node* left;
+        Node* right;
+        Node(char c, int f) : ch(c), freq(f), left(nullptr), right(nullptr) {}
+    };
+    struct Compare {
+        bool operator()(Node* a, Node* b) {
+            return a->freq > b->freq;
+        }
+    };
     std::priority_queue<Node*, std::vector<Node*>, Compare> pq;
     for (auto& pair : freqMap) {
         pq.push(new Node(pair.first, pair.second));
@@ -34,8 +37,7 @@ void buildHuffmanTree(const std::string& text, std::unordered_map<char, std::str
         parent->right = right;
         pq.push(parent);
     }
-    root = pq.top();
-    
+    Node* root = pq.top();
     std::function<void(Node*, std::string)> generateCodes = [&](Node* node, std::string code) {
         if (!node) return;
         if (node->ch != '\0') {
@@ -44,19 +46,7 @@ void buildHuffmanTree(const std::string& text, std::unordered_map<char, std::str
         generateCodes(node->left, code + "0");
         generateCodes(node->right, code + "1");
     };
-    
     generateCodes(root, "");
-}
-
-std::string compress(const std::string& source) {
-    std::unordered_map<char, int> freqMap;
-    for (char c : source) {
-        freqMap[c]++;
-    }
-    
-    std::unordered_map<char, std::string> huffCodes;
-    Node* root = nullptr;
-    buildHuffmanTree(source, huffCodes, root, freqMap);
     
     std::ostringstream freqStream;
     freqStream << freqMap.size() << " ";
@@ -84,23 +74,6 @@ std::string compress(const std::string& source) {
     return freqStream.str() + "|" + bitStream.str();
 }
 
-Node* rebuildHuffmanTree(std::unordered_map<char, int>& freqMap) {
-    std::priority_queue<Node*, std::vector<Node*>, Compare> pq;
-    for (auto& pair : freqMap) {
-        pq.push(new Node(pair.first, pair.second));
-    }
-
-    while (pq.size() > 1) {
-        Node* left = pq.top(); pq.pop();
-        Node* right = pq.top(); pq.pop();
-        Node* parent = new Node('\0', left->freq + right->freq);
-        parent->left = left;
-        parent->right = right;
-        pq.push(parent);
-    }
-    return pq.top();
-}
-
 std::string decompress(const std::string& source) {
     size_t delim = source.find('|');
     std::istringstream freqStream(source.substr(0, delim));
@@ -115,7 +88,31 @@ std::string decompress(const std::string& source) {
         freqMap[ch] = freq;
     }
     
-    Node* root = rebuildHuffmanTree(freqMap);
+    struct Node {
+        char ch;
+        int freq;
+        Node* left;
+        Node* right;
+        Node(char c, int f) : ch(c), freq(f), left(nullptr), right(nullptr) {}
+    };
+    struct Compare {
+        bool operator()(Node* a, Node* b) {
+            return a->freq > b->freq;
+        }
+    };
+    std::priority_queue<Node*, std::vector<Node*>, Compare> pq;
+    for (auto& pair : freqMap) {
+        pq.push(new Node(pair.first, pair.second));
+    }
+    while (pq.size() > 1) {
+        Node* left = pq.top(); pq.pop();
+        Node* right = pq.top(); pq.pop();
+        Node* parent = new Node('\0', left->freq + right->freq);
+        parent->left = left;
+        parent->right = right;
+        pq.push(parent);
+    }
+    Node* root = pq.top();
     
     std::istringstream bitStream(source.substr(delim + 1));
     int padding;
