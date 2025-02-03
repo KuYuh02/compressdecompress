@@ -1,7 +1,7 @@
 #include <iostream>
 #include <unordered_map>
-#include <queue>
 #include <vector>
+#include <queue>
 #include <bitset>
 #include <sstream>
 
@@ -19,74 +19,85 @@ struct Compare {
     }
 };
 
-std::string compress(const std::string& source) {
+void buildHuffmanTree(const std::string& text, std::unordered_map<char, std::string>& huffCodes, std::string& encodedTree) {
     std::unordered_map<char, int> freqMap;
-    for (char ch : source) {
-        freqMap[ch]++;
+    for (char c : text) {
+        freqMap[c]++;
     }
-    
-    std::priority_queue<Node*, std::vector<Node*>, Compare> minHeap;
-    for (const auto& pair : freqMap) {
-        minHeap.push(new Node(pair.first, pair.second));
+
+    std::priority_queue<Node*, std::vector<Node*>, Compare> pq;
+    for (auto& pair : freqMap) {
+        pq.push(new Node(pair.first, pair.second));
     }
-    
-    while (minHeap.size() > 1) {
-        Node* left = minHeap.top(); minHeap.pop();
-        Node* right = minHeap.top(); minHeap.pop();
-        Node* newNode = new Node('\0', left->freq + right->freq);
-        newNode->left = left;
-        newNode->right = right;
-        minHeap.push(newNode);
+
+    while (pq.size() > 1) {
+        Node* left = pq.top(); pq.pop();
+        Node* right = pq.top(); pq.pop();
+        Node* parent = new Node('\0', left->freq + right->freq);
+        parent->left = left;
+        parent->right = right;
+        pq.push(parent);
     }
+
+    Node* root = pq.top();
     
-    Node* root = minHeap.top();
-    std::unordered_map<char, std::string> huffmanCodes;
-    std::function<void(Node*, std::string)> encode = [&](Node* node, std::string str) {
+    std::function<void(Node*, std::string)> generateCodes = [&](Node* node, std::string code) {
         if (!node) return;
         if (node->ch != '\0') {
-            huffmanCodes[node->ch] = str;
+            huffCodes[node->ch] = code;
+            encodedTree += node->ch + code + " ";
         }
-        encode(node->left, str + "0");
-        encode(node->right, str + "1");
+        generateCodes(node->left, code + "0");
+        generateCodes(node->right, code + "1");
     };
-    encode(root, "");
     
-    std::ostringstream header;
-    header << huffmanCodes.size() << " ";
-    for (const auto& pair : huffmanCodes) {
-        header << pair.first << " " << pair.second << " ";
+    generateCodes(root, "");
+}
+
+std::string compress(const std::string& source) {
+    std::unordered_map<char, std::string> huffCodes;
+    std::string encodedTree;
+    buildHuffmanTree(source, huffCodes, encodedTree);
+    
+    std::string compressedData;
+    for (char c : source) {
+        compressedData += huffCodes[c];
     }
     
-    std::ostringstream encodedString;
-    for (char ch : source) {
-        encodedString << huffmanCodes[ch];
+    std::ostringstream oss;
+    oss << encodedTree << "|";
+    for (size_t i = 0; i < compressedData.size(); i += 8) {
+        std::bitset<8> bits(compressedData.substr(i, 8));
+        oss << static_cast<char>(bits.to_ulong());
     }
     
-    return header.str() + "#" + encodedString.str();
+    return oss.str();
 }
 
 std::string decompress(const std::string& source) {
-    size_t pos = source.find('#');
-    if (pos == std::string::npos) return "";
+    size_t delim = source.find('|');
+    std::unordered_map<std::string, char> decodeMap;
     
-    std::istringstream headerStream(source.substr(0, pos));
-    std::string encodedData = source.substr(pos + 1);
-    
-    std::unordered_map<std::string, char> reverseHuffmanCodes;
-    size_t tableSize;
-    headerStream >> tableSize;
-    for (size_t i = 0; i < tableSize; i++) {
-        char ch;
-        std::string code;
-        headerStream >> ch >> code;
-        reverseHuffmanCodes[code] = ch;
+    std::istringstream iss(source.substr(0, delim));
+    std::string token;
+    while (iss >> token) {
+        char ch = token[0];
+        std::string code = token.substr(1);
+        decodeMap[code] = ch;
     }
     
-    std::string decoded, current;
-    for (char bit : encodedData) {
+    std::string bitString;
+    for (size_t i = delim + 1; i < source.size(); ++i) {
+        std::bitset<8> bits(static_cast<unsigned char>(source[i]));
+        bitString += bits.to_string();
+    }
+    
+    std::string decoded;
+    std::string current;
+    for (char bit : bitString) {
         current += bit;
-        if (reverseHuffmanCodes.count(current)) {
-            decoded += reverseHuffmanCodes[current];
+        if (decodeMap.count(current)) {
+            decoded += decodeMap[current];
             current.clear();
         }
     }
