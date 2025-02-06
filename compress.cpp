@@ -26,17 +26,6 @@ struct Node {
     }
 };
 
-// Helper function to clean and preprocess input
-std::string cleanInput(const std::string& input) {
-    std::string cleaned;
-    for (char c : input) {
-        if (isalnum(c) || c == ' ') {
-            cleaned += c;
-        }
-    }
-    return cleaned;
-}
-
 // Function to build the frequency map
 std::map<char, int> buildFrequencyMap(const std::string& input) {
     std::map<char, int> frequencyMap;
@@ -82,20 +71,19 @@ Node* buildHuffmanTree(const std::map<char, int>& frequencyMap) {
 
 // Function to compress input using multi-layer compression
 std::string compress(const std::string& input) {
-    std::string cleanedInput = cleanInput(input);
-    std::istringstream stream(cleanedInput);
+    std::istringstream stream(input);
     std::string word, encodedText;
     
     // Encode common words first
     while (stream >> word) {
         if (commonWords.count(word)) {
-            encodedText += "W" + commonWords[word];  // Prefix 'W' for word encoding
+            encodedText += "W" + commonWords[word] + " ";
         } else {
             for (char c : word) {
-                encodedText += std::bitset<8>(c).to_string();
+                encodedText += c;
             }
+            encodedText += " ";
         }
-        encodedText += " ";
     }
     
     // Build Huffman encoding for remaining characters
@@ -114,16 +102,10 @@ std::string compress(const std::string& input) {
 
 // Function to decompress the string
 std::string decompress(const std::string& compressed) {
-    std::string decodedBinary, decodedText, buffer;
-    std::istringstream stream(compressed);
-    std::string bitSequence;
+    std::string decodedText, buffer;
     
-    // Decode Huffman-encoded text back to binary
-    while (stream >> bitSequence) {
-        decodedBinary += bitSequence;
-    }
-    
-    std::istringstream binaryStream(decodedBinary);
+    // Decode Huffman-encoded text back to original
+    std::istringstream binaryStream(compressed);
     std::string token;
     while (binaryStream >> token) {
         if (token[0] == 'W') {
@@ -135,8 +117,7 @@ std::string decompress(const std::string& compressed) {
                 }
             }
         } else {
-            char decodedChar = static_cast<char>(std::bitset<8>(token).to_ulong());
-            decodedText += decodedChar;
+            decodedText += token + " ";
         }
     }
     
