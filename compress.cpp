@@ -4,6 +4,13 @@
 #include <queue>
 #include <unordered_map>
 #include <bitset>
+#include <vector>
+
+// Common words dictionary
+std::unordered_map<std::string, std::string> commonWords = {
+    {"the", "000"}, {"and", "001"}, {"to", "010"}, {"of", "011"},
+    {"a", "100"}, {"in", "101"}, {"is", "110"}, {"it", "111"}
+};
 
 // Node structure for Huffman Tree
 struct Node {
@@ -17,6 +24,17 @@ struct Node {
         return freq > other.freq;
     }
 };
+
+// Helper function to remove irrelevant characters
+std::string cleanInput(const std::string& input) {
+    std::string cleaned;
+    for (char c : input) {
+        if (isalnum(c) || c == ' ') {
+            cleaned += c;
+        }
+    }
+    return cleaned;
+}
 
 // Helper function to build the frequency map
 std::map<char, int> buildFrequencyMap(const std::string& input) {
@@ -44,17 +62,13 @@ Node* buildHuffmanTree(const std::map<char, int>& frequencyMap) {
     auto cmp = [](Node* left, Node* right) { return left->freq > right->freq; };
     std::priority_queue<Node*, std::vector<Node*>, decltype(cmp)> minHeap(cmp);
 
-    // Create a node for each character and add it to the priority queue
     for (const auto& pair : frequencyMap) {
         minHeap.push(new Node(pair.first, pair.second));
     }
 
-    // Build the Huffman Tree
     while (minHeap.size() > 1) {
-        Node* left = minHeap.top();
-        minHeap.pop();
-        Node* right = minHeap.top();
-        minHeap.pop();
+        Node* left = minHeap.top(); minHeap.pop();
+        Node* right = minHeap.top(); minHeap.pop();
 
         Node* internalNode = new Node('\0', left->freq + right->freq);
         internalNode->left = left;
@@ -62,88 +76,65 @@ Node* buildHuffmanTree(const std::map<char, int>& frequencyMap) {
         minHeap.push(internalNode);
     }
 
-    return minHeap.top();  // Root of the Huffman Tree
+    return minHeap.top();
 }
 
-// Helper function to serialize the tree into a binary string
-std::string serializeTree(Node* root) {
-    if (!root) return "";
-
-    // If it's a leaf node, we store the character and indicate it's a leaf with '1'
-    if (!root->left && !root->right) {
-        return "1" + std::bitset<8>(root->data).to_string(); // 8-bit representation of char
-    }
-
-    // For internal nodes, we just store '0' and continue recursively
-    return "0" + serializeTree(root->left) + serializeTree(root->right);
-}
-
-// Helper function to deserialize the tree from a binary string
-Node* deserializeTree(const std::string& treeData, size_t& index) {
-    if (index >= treeData.size()) return nullptr;
-
-    if (treeData[index] == '1') {  // Leaf node
-        index++;  // Skip '1'
-        char data = static_cast<char>(std::bitset<8>(treeData.substr(index, 8)).to_ulong());
-        index += 8;  // Skip the 8 bits of the character
-        return new Node(data, 0);
-    }
-
-    index++;  // Skip '0' for internal nodes
-    Node* internalNode = new Node('\0', 0);
-    internalNode->left = deserializeTree(treeData, index);
-    internalNode->right = deserializeTree(treeData, index);
-    return internalNode;
-}
-
-// Function to compress the string using Huffman codes
+// Function to compress the string using Huffman codes and common words encoding
 std::string compress(const std::string& input) {
-    // Step 1: Build the frequency map
-    std::map<char, int> frequencyMap = buildFrequencyMap(input);
-
-    // Step 2: Build the Huffman Tree
+    std::string cleanedInput = cleanInput(input);
+    std::map<char, int> frequencyMap = buildFrequencyMap(cleanedInput);
     Node* root = buildHuffmanTree(frequencyMap);
 
-    // Step 3: Generate Huffman Codes
     std::unordered_map<char, std::string> huffmanCodes;
     generateHuffmanCodes(root, "", huffmanCodes);
 
-    // Step 4: Serialize the tree
-    std::string serializedTree = serializeTree(root);
-
-    // Step 5: Compress the input string using Huffman Codes (binary form)
     std::string compressed;
-    for (char c : input) {
-        compressed += huffmanCodes[c];  // Append the Huffman code for each character
+    std::string word;
+    for (char c : cleanedInput) {
+        if (c == ' ') {
+            if (!word.empty() && commonWords.count(word)) {
+                compressed += commonWords[word];
+            } else {
+                for (char wc : word) {
+                    compressed += huffmanCodes[wc];
+                }
+            }
+            compressed += " ";
+            word.clear();
+        } else {
+            word += c;
+        }
     }
 
-    // Combine the serialized tree with the compressed data
-    return serializedTree + compressed;
+    if (!word.empty()) {
+        if (commonWords.count(word)) {
+            compressed += commonWords[word];
+        } else {
+            for (char wc : word) {
+                compressed += huffmanCodes[wc];
+            }
+        }
+    }
+
+    return compressed;
 }
 
-// Function to decompress the string using the Huffman Tree
+// Function to decompress the string using Huffman Tree and common words decoding
 std::string decompress(const std::string& compressed) {
-    size_t index = 0;
-    // Step 1: Deserialize the Huffman tree from the compressed string
-    Node* root = deserializeTree(compressed, index);
-
-    // Step 2: Decompress the compressed string using the Huffman Tree
     std::string decompressed;
-    Node* current = root;
-    while (index < compressed.size()) {
-        if (compressed[index] == '0') {
-            current = current->left;
+    std::string current;
+    for (char c : compressed) {
+        if (c == ' ') {
+            for (const auto& pair : commonWords) {
+                if (pair.second == current) {
+                    decompressed += pair.first + " ";
+                    current.clear();
+                    break;
+                }
+            }
         } else {
-            current = current->right;
-        }
-        index++;
-
-        // If we've reached a leaf node, add the character to the decompressed string
-        if (!current->left && !current->right) {
-            decompressed += current->data;
-            current = root;  // Reset to root for the next character
+            current += c;
         }
     }
-
     return decompressed;
 }
