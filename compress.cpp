@@ -105,7 +105,10 @@ std::string compress(const std::string& input) {
         if (commonWords.count(word)) {
             encodedText += "W" + commonWords[word] + " ";
         } else {
-            encodedText += word + " ";
+            for (char c : word) {
+                encodedText += std::bitset<8>(c).to_string();
+            }
+            encodedText += " ";
         }
     }
     
@@ -135,7 +138,7 @@ std::string decompress(const std::string& compressed) {
     size_t index = 0;
     Node* root = deserializeTree(treeData, index);
     
-    std::string decodedText;
+    std::string decodedBinary;
     Node* current = root;
     for (char c : encodedText) {
         if (c == '0') {
@@ -145,18 +148,23 @@ std::string decompress(const std::string& compressed) {
         }
         
         if (!current->left && !current->right) {
-            decodedText += current->data;
+            decodedBinary += current->data;
             current = root;
         }
     }
     
-    std::istringstream stream(decodedText);
+    std::istringstream stream(decodedBinary);
     std::string output, token;
     while (stream >> token) {
         if (token[0] == 'W' && reverseCommonWords.count(token.substr(1))) {
             output += reverseCommonWords[token.substr(1)] + " ";
         } else {
-            output += token + " ";
+            std::string charStr;
+            for (size_t i = 0; i < token.size(); i += 8) {
+                char decodedChar = static_cast<char>(std::bitset<8>(token.substr(i, 8)).to_ulong());
+                charStr += decodedChar;
+            }
+            output += charStr + " ";
         }
     }
     
