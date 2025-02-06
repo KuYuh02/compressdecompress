@@ -21,9 +21,6 @@ struct Node {
     Node* right;
 
     Node(char data, int freq) : data(data), freq(freq), left(nullptr), right(nullptr) {}
-    bool operator>(const Node& other) const {
-        return freq > other.freq;
-    }
 };
 
 // Function to build the frequency map
@@ -69,7 +66,34 @@ Node* buildHuffmanTree(const std::map<char, int>& frequencyMap) {
     return minHeap.top();
 }
 
-// Function to compress input using multi-layer compression
+// Serialize the Huffman tree for decoding
+std::string serializeTree(Node* root) {
+    if (!root) return "";
+    if (!root->left && !root->right) {
+        return "1" + std::bitset<8>(root->data).to_string();
+    }
+    return "0" + serializeTree(root->left) + serializeTree(root->right);
+}
+
+// Deserialize Huffman tree from binary string
+Node* deserializeTree(const std::string& treeData, size_t& index) {
+    if (index >= treeData.size()) return nullptr;
+    
+    if (treeData[index] == '1') {
+        index++;
+        char data = static_cast<char>(std::bitset<8>(treeData.substr(index, 8)).to_ulong());
+        index += 8;
+        return new Node(data, 0);
+    }
+    
+    index++;
+    Node* node = new Node('\0', 0);
+    node->left = deserializeTree(treeData, index);
+    node->right = deserializeTree(treeData, index);
+    return node;
+}
+
+// Function to compress input using Huffman encoding and common words
 std::string compress(const std::string& input) {
     std::istringstream stream(input);
     std::string word, encodedText;
@@ -92,32 +116,38 @@ std::string compress(const std::string& input) {
     std::unordered_map<char, std::string> huffmanCodes;
     generateHuffmanCodes(root, "", huffmanCodes);
     
+    std::string serializedTree = serializeTree(root);
     std::string compressed;
     for (char c : encodedText) {
         compressed += huffmanCodes[c];
     }
     
-    return compressed;
+    return serializedTree + "|" + compressed;
 }
 
 // Function to decompress the string
 std::string decompress(const std::string& compressed) {
-    std::string decodedText, buffer;
+    size_t delimiter = compressed.find('|');
+    if (delimiter == std::string::npos) return "";
     
-    // Decode Huffman-encoded text back to original
-    std::istringstream binaryStream(compressed);
-    std::string token;
-    while (binaryStream >> token) {
-        if (token[0] == 'W') {
-            std::string wordCode = token.substr(1);
-            for (const auto& pair : commonWords) {
-                if (pair.second == wordCode) {
-                    decodedText += pair.first + " ";
-                    break;
-                }
-            }
+    std::string treeData = compressed.substr(0, delimiter);
+    std::string encodedText = compressed.substr(delimiter + 1);
+    
+    size_t index = 0;
+    Node* root = deserializeTree(treeData, index);
+    
+    std::string decodedText;
+    Node* current = root;
+    for (char c : encodedText) {
+        if (c == '0') {
+            current = current->left;
         } else {
-            decodedText += token + " ";
+            current = current->right;
+        }
+        
+        if (!current->left && !current->right) {
+            decodedText += current->data;
+            current = root;
         }
     }
     
