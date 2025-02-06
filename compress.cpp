@@ -103,4 +103,3 @@ std::unordered_map<std::string, char> generateReverseCodes(const std::unordered_
     }
     return reverseHuffmanCodes;
 }
-
