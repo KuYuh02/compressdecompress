@@ -104,22 +104,3 @@ std::unordered_map<std::string, char> generateReverseCodes(const std::unordered_
     return reverseHuffmanCodes;
 }
 
-int main() {
-    std::string input = "this is an example of a string to compress and decompress!";
-    
-    // Compress
-    std::string compressed = compress(input);
-    
-    // Reverse the codes for decompression
-    std::unordered_map<char, std::string> huffmanCodes;
-    std::unordered_map<std::string, char> reverseHuffmanCodes = generateReverseCodes(huffmanCodes);
-    
-    // Decompress
-    std::string decompressed = decompress(compressed, reverseHuffmanCodes);
-    
-    std::cout << "Original: " << input << "\n";
-    std::cout << "Compressed: " << compressed << "\n";
-    std::cout << "Decompressed: " << decompressed << "\n";
-    
-    return 0;
-}
