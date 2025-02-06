@@ -13,6 +13,8 @@ std::unordered_map<std::string, std::string> commonWords = {
     {"a", "100"}, {"in", "101"}, {"is", "110"}, {"it", "111"}
 };
 
+std::unordered_map<std::string, std::string> reverseCommonWords;
+
 // Node structure for Huffman Tree
 struct Node {
     char data;
@@ -103,10 +105,7 @@ std::string compress(const std::string& input) {
         if (commonWords.count(word)) {
             encodedText += "W" + commonWords[word] + " ";
         } else {
-            for (char c : word) {
-                encodedText += c;
-            }
-            encodedText += " ";
+            encodedText += word + " ";
         }
     }
     
@@ -151,5 +150,15 @@ std::string decompress(const std::string& compressed) {
         }
     }
     
-    return decodedText;
+    std::istringstream stream(decodedText);
+    std::string output, token;
+    while (stream >> token) {
+        if (token[0] == 'W' && reverseCommonWords.count(token.substr(1))) {
+            output += reverseCommonWords[token.substr(1)] + " ";
+        } else {
+            output += token + " ";
+        }
+    }
+    
+    return output;
 }
