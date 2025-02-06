@@ -2,7 +2,6 @@
 #include <string>
 #include <unordered_map>
 #include <queue>
-#include <bitset>
 #include <vector>
 #include <sstream>
 
@@ -13,8 +12,8 @@ struct HuffmanNode {
     HuffmanNode* left;
     HuffmanNode* right;
     
-    // Constructor
     HuffmanNode(char c, int f) : ch(c), freq(f), left(nullptr), right(nullptr) {}
+    HuffmanNode(int f, HuffmanNode* l, HuffmanNode* r) : ch('\0'), freq(f), left(l), right(r) {}
 };
 
 // Comparison operator for priority queue
@@ -35,7 +34,7 @@ void generateCodes(HuffmanNode* root, const std::string& code, std::unordered_ma
 }
 
 // Compress the input string
-std::string compress(const std::string& source) {
+std::string compress(const std::string& source, std::unordered_map<char, std::string>& huffmanCodes) {
     if (source.empty()) return "";
 
     // Step 1: Calculate frequencies of each character
@@ -58,15 +57,12 @@ std::string compress(const std::string& source) {
         minHeap.pop();
 
         // Create a new internal node with these two as children
-        HuffmanNode* newNode = new HuffmanNode('\0', left->freq + right->freq);
-        newNode->left = left;
-        newNode->right = right;
+        HuffmanNode* newNode = new HuffmanNode(left->freq + right->freq, left, right);
 
         minHeap.push(newNode);
     }
 
     // Step 3: Generate Huffman codes from the tree
-    std::unordered_map<char, std::string> huffmanCodes;
     generateCodes(minHeap.top(), "", huffmanCodes);
 
     // Step 4: Encode the input string using Huffman codes
@@ -79,7 +75,7 @@ std::string compress(const std::string& source) {
     return compressed.str();
 }
 
-// Decompress the input string using the Huffman tree
+// Decompress the input string using the reverse Huffman map
 std::string decompress(const std::string& compressed, const std::unordered_map<std::string, char>& reverseHuffmanCodes) {
     std::stringstream decompressed;
     std::string code = "";
@@ -88,7 +84,7 @@ std::string decompress(const std::string& compressed, const std::unordered_map<s
         code += bit;
         if (reverseHuffmanCodes.find(code) != reverseHuffmanCodes.end()) {
             decompressed << reverseHuffmanCodes.at(code);
-            code = "";
+            code = ""; // Reset for next character
         }
     }
 
