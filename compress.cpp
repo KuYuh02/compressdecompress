@@ -23,7 +23,15 @@ struct Compare {
     }
 };
 
-// Generate Huffman codes from the tree
+// Predefined special words and their codes
+std::unordered_map<std::string, std::string> wordCodes = {
+    {"the", "0001"}, {"and", "0010"}, {"a", "0011"}, {"to", "0100"},
+    {"is", "0101"}, {"in", "0110"}, {"it", "0111"}, {"you", "1000"},
+    {"that", "1001"}, {"of", "1010"}, {"for", "1011"},
+    // Add more common words as needed
+};
+
+// Helper function to generate Huffman codes
 void generateCodes(HuffmanNode* root, const std::string& code, std::unordered_map<char, std::string>& codes) {
     if (!root) return;
     if (root->ch != '\0') {
@@ -33,10 +41,8 @@ void generateCodes(HuffmanNode* root, const std::string& code, std::unordered_ma
     generateCodes(root->right, code + "1", codes);
 }
 
-// Compress the input string
-std::string compress(const std::string& source, std::unordered_map<char, std::string>& huffmanCodes) {
-    if (source.empty()) return "";
-
+// Function to build the Huffman tree for characters
+std::string buildHuffmanTreeAndEncode(const std::string& source, std::unordered_map<char, std::string>& huffmanCodes) {
     // Step 1: Calculate frequencies of each character
     std::unordered_map<char, int> freqMap;
     for (char ch : source) {
@@ -50,15 +56,11 @@ std::string compress(const std::string& source, std::unordered_map<char, std::st
     }
 
     while (minHeap.size() > 1) {
-        // Take two nodes with the smallest frequency
         HuffmanNode* left = minHeap.top();
         minHeap.pop();
         HuffmanNode* right = minHeap.top();
         minHeap.pop();
-
-        // Create a new internal node with these two as children
         HuffmanNode* newNode = new HuffmanNode(left->freq + right->freq, left, right);
-
         minHeap.push(newNode);
     }
 
@@ -71,15 +73,32 @@ std::string compress(const std::string& source, std::unordered_map<char, std::st
         compressed << huffmanCodes[ch];
     }
 
-    // Return the compressed bitstream
     return compressed.str();
 }
 
-// Decompress the input string using the reverse Huffman map
+// Function to replace common words with special codes
+std::string replaceCommonWordsWithCodes(const std::string& input) {
+    std::stringstream modified;
+    std::string word;
+    std::istringstream stream(input);
+
+    while (stream >> word) {
+        // Replace words with special codes if present in the wordCodes map
+        if (wordCodes.find(word) != wordCodes.end()) {
+            modified << wordCodes[word] << " ";  // Add special code for the word
+        } else {
+            modified << word << " ";  // Otherwise, keep the word as it is
+        }
+    }
+
+    return modified.str();
+}
+
+// Decompress function
 std::string decompress(const std::string& compressed, const std::unordered_map<std::string, char>& reverseHuffmanCodes) {
     std::stringstream decompressed;
     std::string code = "";
-    
+
     for (char bit : compressed) {
         code += bit;
         if (reverseHuffmanCodes.find(code) != reverseHuffmanCodes.end()) {
@@ -98,4 +117,13 @@ std::unordered_map<std::string, char> generateReverseCodes(const std::unordered_
         reverseHuffmanCodes[entry.second] = entry.first;
     }
     return reverseHuffmanCodes;
+}
+
+// Function to combine all compression layers
+std::string compress(const std::string& source, std::unordered_map<char, std::string>& huffmanCodes) {
+    // First replace common words with special codes
+    std::string modified = replaceCommonWordsWithCodes(source);
+    
+    // Then build the Huffman tree and encode the remaining string
+    return buildHuffmanTreeAndEncode(modified, huffmanCodes);
 }
