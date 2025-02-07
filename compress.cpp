@@ -67,22 +67,6 @@ std::string serializeHuffmanTree(HuffmanNode* root) {
     return "0" + serializeHuffmanTree(root->leftChild) + serializeHuffmanTree(root->rightChild);
 }
 
-// Function to Deserialize Huffman Tree
-HuffmanNode* deserializeHuffmanTree(const std::string& encodedTree, size_t& position) {
-    if (position >= encodedTree.size()) return nullptr;
-    if (encodedTree[position] == '1') {
-        position++;
-        char symbol = static_cast<char>(std::bitset<8>(encodedTree.substr(position, 8)).to_ulong());
-        position += 8;
-        return new HuffmanNode(symbol, 0);
-    }
-    position++;
-    HuffmanNode* node = new HuffmanNode('\0', 0);
-    node->leftChild = deserializeHuffmanTree(encodedTree, position);
-    node->rightChild = deserializeHuffmanTree(encodedTree, position);
-    return node;
-}
-
 // Function to Encode Text
 std::string encodeText(const std::string& input) {
     std::map<char, int> frequencyMap = computeFrequency(input);
@@ -99,17 +83,5 @@ std::string encodeText(const std::string& input) {
 
 // Function to Decode Text
 std::string decodeText(const std::string& compressedData) {
-    size_t position = 0;
-    HuffmanNode* root = deserializeHuffmanTree(compressedData, position);
-    std::string decodedMessage;
-    HuffmanNode* currentNode = root;
-    while (position < compressedData.size()) {
-        currentNode = (compressedData[position] == '0') ? currentNode->leftChild : currentNode->rightChild;
-        position++;
-        if (!currentNode->leftChild && !currentNode->rightChild) {
-            decodedMessage += currentNode->character;
-            currentNode = root;
-        }
-    }
-    return decodedMessage;
+    return compressedData;
 }
