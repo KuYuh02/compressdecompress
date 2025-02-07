@@ -1,115 +1,72 @@
 #include <iostream>
 #include <string>
-#include <map>
-#include <queue>
+#include <vector>
 #include <unordered_map>
 #include <bitset>
 
-// Node structure for Huffman Tree
-struct TreeNode {
-    char symbol;
-    int weight;
-    TreeNode* left;
-    TreeNode* right;
+constexpr int DICT_SIZE = 256;
 
-    TreeNode(char s, int w) : symbol(s), weight(w), left(nullptr), right(nullptr) {}
-};
-
-// Comparator for priority queue
-struct NodeComparer {
-    bool operator()(TreeNode* a, TreeNode* b) {
-        return a->weight > b->weight;
+// Function to compress a string using a simple dictionary-based approach
+std::string compress(const std::string& source) {
+    std::unordered_map<std::string, int> dictionary;
+    for (int i = 0; i < DICT_SIZE; ++i) {
+        dictionary[std::string(1, i)] = i;
     }
-};
-
-// Function to build frequency table
-std::map<char, int> calculateFrequencies(const std::string& text) {
-    std::map<char, int> freqTable;
-    for (char ch : text) {
-        freqTable[ch]++;
+    
+    std::string current;
+    std::vector<int> encoded;
+    int nextCode = DICT_SIZE;
+    
+    for (char ch : source) {
+        std::string temp = current + ch;
+        if (dictionary.find(temp) != dictionary.end()) {
+            current = temp;
+        } else {
+            encoded.push_back(dictionary[current]);
+            dictionary[temp] = nextCode++;
+            current = std::string(1, ch);
+        }
     }
-    return freqTable;
-}
-
-// Function to generate Huffman codes
-void generateHuffmanCodes(TreeNode* node, const std::string& path, std::unordered_map<char, std::string>& codes) {
-    if (!node) return;
-    if (!node->left && !node->right) {
-        codes[node->symbol] = path;
+    
+    if (!current.empty()) {
+        encoded.push_back(dictionary[current]);
     }
-    generateHuffmanCodes(node->left, path + "0", codes);
-    generateHuffmanCodes(node->right, path + "1", codes);
-}
-
-// Function to construct Huffman Tree
-TreeNode* constructTree(const std::map<char, int>& freqTable) {
-    std::priority_queue<TreeNode*, std::vector<TreeNode*>, NodeComparer> pq;
-    for (const auto& pair : freqTable) {
-        pq.push(new TreeNode(pair.first, pair.second));
-    }
-    while (pq.size() > 1) {
-        TreeNode* left = pq.top(); pq.pop();
-        TreeNode* right = pq.top(); pq.pop();
-        TreeNode* parent = new TreeNode('\0', left->weight + right->weight);
-        parent->left = left;
-        parent->right = right;
-        pq.push(parent);
-    }
-    return pq.top();
-}
-
-// Function to serialize Huffman tree
-std::string serializeTree(TreeNode* root) {
-    if (!root) return "";
-    if (!root->left && !root->right) {
-        return "1" + std::bitset<8>(root->symbol).to_string();
-    }
-    return "0" + serializeTree(root->left) + serializeTree(root->right);
-}
-
-// Function to deserialize Huffman tree
-TreeNode* deserializeTree(const std::string& data, size_t& pos) {
-    if (pos >= data.size()) return nullptr;
-    if (data[pos] == '1') {
-        pos++;
-        char sym = static_cast<char>(std::bitset<8>(data.substr(pos, 8)).to_ulong());
-        pos += 8;
-        return new TreeNode(sym, 0);
-    }
-    pos++;
-    TreeNode* node = new TreeNode('\0', 0);
-    node->left = deserializeTree(data, pos);
-    node->right = deserializeTree(data, pos);
-    return node;
-}
-
-// Function to compress a string
-std::string compressData(const std::string& input) {
-    std::map<char, int> freqTable = calculateFrequencies(input);
-    TreeNode* root = constructTree(freqTable);
-    std::unordered_map<char, std::string> huffmanCodes;
-    generateHuffmanCodes(root, "", huffmanCodes);
-    std::string treeStructure = serializeTree(root);
+    
     std::string compressed;
-    for (char ch : input) {
-        compressed += huffmanCodes[ch];
+    for (int code : encoded) {
+        compressed += std::bitset<16>(code).to_string();
     }
-    return treeStructure + compressed;
+    return compressed;
 }
 
 // Function to decompress a string
-std::string decompressData(const std::string& encodedText) {
-    size_t pos = 0;
-    TreeNode* root = deserializeTree(encodedText, pos);
-    std::string decoded;
-    TreeNode* current = root;
-    while (pos < encodedText.size()) {
-        current = (encodedText[pos] == '0') ? current->left : current->right;
-        pos++;
-        if (!current->left && !current->right) {
-            decoded += current->symbol;
-            current = root;
-        }
+std::string decompress(const std::string& source) {
+    std::vector<int> encoded;
+    for (size_t i = 0; i < source.size(); i += 16) {
+        encoded.push_back(std::bitset<16>(source.substr(i, 16)).to_ulong());
     }
-    return decoded;
+    
+    std::unordered_map<int, std::string> dictionary;
+    for (int i = 0; i < DICT_SIZE; ++i) {
+        dictionary[i] = std::string(1, i);
+    }
+    
+    std::string previous = dictionary[encoded[0]];
+    std::string decompressed = previous;
+    std::string entry;
+    int nextCode = DICT_SIZE;
+    
+    for (size_t i = 1; i < encoded.size(); ++i) {
+        int currentCode = encoded[i];
+        if (dictionary.find(currentCode) != dictionary.end()) {
+            entry = dictionary[currentCode];
+        } else {
+            entry = previous + previous[0];
+        }
+        decompressed += entry;
+        dictionary[nextCode++] = previous + entry[0];
+        previous = entry;
+    }
+    
+    return decompressed;
 }
