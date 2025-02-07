@@ -4,6 +4,7 @@
 #include <queue>
 #include <vector>
 #include <string>
+#include <bitset>
 
 class HuffmanNode {
 public:
@@ -46,7 +47,7 @@ HuffmanNode* createHuffmanTree(const std::map<char, int>& freqMap) {
     while (pq.size() > 1) {
         HuffmanNode* left = pq.top(); pq.pop();
         HuffmanNode* right = pq.top(); pq.pop();
-        HuffmanNode* parent = new HuffmanNode('\0', left->frequency + right->frequency);
+        HuffmanNode* parent = new HuffmanNode('\0', left->frequency + right->frequency + 1);
         parent->left = left;
         parent->right = right;
         pq.push(parent);
@@ -87,24 +88,15 @@ std::string compress(const std::string& input) {
     std::vector<unsigned char> treeEncoding;
     encodeTree(root, treeEncoding);
     std::string compressedData;
-    unsigned char byteBuffer = 0;
-    int bitCounter = 0;
+    std::string bitBuffer;
     for (char c : input) {
-        std::string code = encodingMap[c];
-        for (char bit : code) {
-            byteBuffer <<= 1;
-            if (bit == '1') byteBuffer |= 1;
-            bitCounter++;
-            if (bitCounter == 8) {
-                compressedData.push_back(byteBuffer);
-                byteBuffer = 0;
-                bitCounter = 0;
-            }
-        }
+        bitBuffer += encodingMap[c];
     }
-    if (bitCounter > 0) {
-        byteBuffer <<= (8 - bitCounter);
-        compressedData.push_back(byteBuffer);
+    while (bitBuffer.length() % 8 != 0) {
+        bitBuffer += "0";
+    }
+    for (size_t i = 0; i < bitBuffer.length(); i += 8) {
+        compressedData.push_back(static_cast<unsigned char>(std::bitset<8>(bitBuffer.substr(i, 8)).to_ulong()));
     }
     std::string finalOutput(treeEncoding.begin(), treeEncoding.end());
     finalOutput += compressedData;
@@ -117,17 +109,16 @@ std::string decompress(const std::string& compressedInput) {
     HuffmanNode* root = decodeTree(treeData, index);
     std::string decompressedOutput;
     HuffmanNode* currentNode = root;
-    while (index < treeData.size()) {
-        unsigned char byte = treeData[index];
-        for (int i = 7; i >= 0; --i) {
-            bool bit = (byte >> i) & 1;
+    for (size_t i = index; i < treeData.size(); ++i) {
+        std::bitset<8> bits(treeData[i]);
+        for (int j = 7; j >= 0; --j) {
+            bool bit = bits[j];
             currentNode = bit ? currentNode->right : currentNode->left;
             if (!currentNode->left && !currentNode->right) {
                 decompressedOutput += currentNode->character;
                 currentNode = root;
             }
         }
-        index++;
     }
     return decompressedOutput;
 }
