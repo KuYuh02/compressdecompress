@@ -6,6 +6,8 @@
 #include <bitset>
 #include <queue>
 #include <sstream>
+#include <bitset>
+#include <iomanip>
 
 constexpr int DICT_SIZE = 256;
 
@@ -53,16 +55,19 @@ HuffmanNode* buildHuffmanTree(const std::map<char, int>& frequencyMap) {
 }
 
 // Serialize Huffman Tree
-std::string serializeHuffmanTree(HuffmanNode* root) {
-    if (!root) return "";
+void serializeTree(HuffmanNode* root, std::string& output) {
+    if (!root) return;
     if (!root->left && !root->right) {
-        return "1" + std::bitset<8>(root->character).to_string();
+        output += "1" + std::bitset<8>(root->character).to_string();
+    } else {
+        output += "0";
+        serializeTree(root->left, output);
+        serializeTree(root->right, output);
     }
-    return "0" + serializeHuffmanTree(root->left) + serializeHuffmanTree(root->right);
 }
 
 // Deserialize Huffman Tree
-HuffmanNode* deserializeHuffmanTree(const std::string& data, size_t& index) {
+HuffmanNode* deserializeTree(const std::string& data, size_t& index) {
     if (index >= data.size()) return nullptr;
     if (data[index] == '1') {
         index++;
@@ -72,9 +77,27 @@ HuffmanNode* deserializeHuffmanTree(const std::string& data, size_t& index) {
     }
     index++;
     HuffmanNode* node = new HuffmanNode('\0', 0);
-    node->left = deserializeHuffmanTree(data, index);
-    node->right = deserializeHuffmanTree(data, index);
+    node->left = deserializeTree(data, index);
+    node->right = deserializeTree(data, index);
     return node;
+}
+
+// Function to pack bit string into a compact binary format
+std::string packBits(const std::string& bitString) {
+    std::string packed;
+    for (size_t i = 0; i < bitString.size(); i += 8) {
+        packed += static_cast<char>(std::bitset<8>(bitString.substr(i, 8)).to_ulong());
+    }
+    return packed;
+}
+
+// Function to unpack binary format into a bit string
+std::string unpackBits(const std::string& packed) {
+    std::string bitString;
+    for (char byte : packed) {
+        bitString += std::bitset<8>(byte).to_string();
+    }
+    return bitString;
 }
 
 // Function to compress a string using Huffman coding
@@ -86,23 +109,25 @@ std::string compress(const std::string& source) {
     HuffmanNode* root = buildHuffmanTree(frequencyMap);
     std::unordered_map<char, std::string> huffmanCodes;
     generateHuffmanCodes(root, "", huffmanCodes);
-    std::string serializedTree = serializeHuffmanTree(root);
+    std::string serializedTree;
+    serializeTree(root, serializedTree);
     std::string compressedBits;
     for (char ch : source) {
         compressedBits += huffmanCodes[ch];
     }
-    return serializedTree + "|" + compressedBits;
+    return packBits(serializedTree + "|" + compressedBits);
 }
 
 // Function to decompress a string using Huffman coding
-std::string decompress(const std::string& encodedData) {
+std::string decompress(const std::string& packedData) {
+    std::string encodedData = unpackBits(packedData);
     size_t separator = encodedData.find('|');
     if (separator == std::string::npos) return "ERROR: Invalid encoding";
     std::string treeData = encodedData.substr(0, separator);
     std::string bitstream = encodedData.substr(separator + 1);
     
     size_t index = 0;
-    HuffmanNode* root = deserializeHuffmanTree(treeData, index);
+    HuffmanNode* root = deserializeTree(treeData, index);
     std::string decodedText;
     HuffmanNode* current = root;
     for (char bit : bitstream) {
