@@ -93,6 +93,7 @@ std::string compressString(const std::string& input) {
     std::string compressed;
     for (char c : input) {
         compressed += huffmanCode[c];
+        
     }
     return serializedTree + compressed;
 }
