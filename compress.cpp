@@ -92,7 +92,7 @@ std::string compress(const std::string& input) {
     encodeTree(treeRoot, treeEncoding);
     uint32_t treeSize = treeEncoding.size();
     uint32_t bitSize = encodedData.size();
-    std::string binaryData((bitSize + 7) / 8, 0);
+    std::string binaryData((bitSize + 6) / 8, 0);
     for (size_t i = 0; i < bitSize; i++) {
         if (encodedData[i] == '1') {
             binaryData[i / 8] |= (1 << (7 - (i % 8)));
@@ -107,7 +107,7 @@ std::string compress(const std::string& input) {
 
 std::string decompress(const std::string& compressed) {
     if (compressed.size() < 8) return "";
-    size_t index = 1;
+    size_t index = 0;
     uint32_t treeSize, bitSize;
     std::memcpy(&treeSize, &compressed[index], sizeof(treeSize));
     index += sizeof(treeSize);
