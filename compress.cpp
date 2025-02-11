@@ -10,50 +10,52 @@
 struct HuffmanNode {
     char data;
     int freq;
-    HuffmanNode* left;
-    HuffmanNode* right;
-
-    HuffmanNode(char c, int f) : data(c), freq(f), left(nullptr), right(nullptr) {}
+    HuffmanNode *left, *right;
+    HuffmanNode(char d, int f) : data(d), freq(f), left(nullptr), right(nullptr) {}
 };
 
-struct NodeComparator {
+struct CompareNodes {
     bool operator()(HuffmanNode* a, HuffmanNode* b) {
         return a->freq > b->freq;
     }
 };
 
-void serializeTree(HuffmanNode* root, std::string& treeStr) {
+void encodeTree(HuffmanNode* root, std::string& treeEncoding) {
     if (!root) return;
+    
     if (!root->left && !root->right) {
-        treeStr += "1";
-        treeStr += root->data;
+        treeEncoding += '1';
+        treeEncoding += root->data;
     } else {
-        treeStr += "0";
-        serializeTree(root->left, treeStr);
-        serializeTree(root->right, treeStr);
+        treeEncoding += '0';
+        encodeTree(root->left, treeEncoding);
+        encodeTree(root->right, treeEncoding);
     }
 }
 
-HuffmanNode* deserializeTree(const std::string& treeData, size_t& idx) {
-    if (idx >= treeData.size()) return nullptr;
-    if (treeData[idx] == '1') {
-        idx++;
-        HuffmanNode* leaf = new HuffmanNode(treeData[idx], 0);
-        idx++;
-        return leaf;
+HuffmanNode* decodeTree(const std::string& data, size_t& index) {
+    if (index >= data.size()) return nullptr;
+    
+    if (data[index] == '1') {
+        index++;
+        HuffmanNode* node = new HuffmanNode(data[index], 0);
+        index++;
+        return node;
     }
-    idx++;
+    
+    index++;
     HuffmanNode* node = new HuffmanNode('\0', 0);
-    node->left = deserializeTree(treeData, idx);
-    node->right = deserializeTree(treeData, idx);
+    node->left = decodeTree(data, index);
+    node->right = decodeTree(data, index);
     return node;
 }
 
-HuffmanNode* buildHuffmanTree(std::unordered_map<char, int>& freqMap) {
-    std::priority_queue<HuffmanNode*, std::vector<HuffmanNode*>, NodeComparator> minHeap;
-    for (const auto& pair : freqMap) {
-        minHeap.push(new HuffmanNode(pair.first, pair.second));
+HuffmanNode* buildHuffmanTree(const std::unordered_map<char, int>& freqMap) {
+    std::priority_queue<HuffmanNode*, std::vector<HuffmanNode*>, CompareNodes> minHeap;
+    for (const auto& entry : freqMap) {
+        minHeap.push(new HuffmanNode(entry.first, entry.second));
     }
+    
     while (minHeap.size() > 1) {
         HuffmanNode* left = minHeap.top(); minHeap.pop();
         HuffmanNode* right = minHeap.top(); minHeap.pop();
@@ -65,13 +67,15 @@ HuffmanNode* buildHuffmanTree(std::unordered_map<char, int>& freqMap) {
     return minHeap.top();
 }
 
-void generateHuffmanCodes(HuffmanNode* root, const std::string& prefix, std::unordered_map<char, std::string>& codeMap) {
+void generateHuffmanCodes(HuffmanNode* root, std::string path, std::unordered_map<char, std::string>& codes) {
     if (!root) return;
+    
     if (!root->left && !root->right) {
-        codeMap[root->data] = prefix;
+        codes[root->data] = path;
     }
-    generateHuffmanCodes(root->left, prefix + "0", codeMap);
-    generateHuffmanCodes(root->right, prefix + "1", codeMap);
+    
+    generateHuffmanCodes(root->left, path + "0", codes);
+    generateHuffmanCodes(root->right, path + "1", codes);
 }
 
 void freeTree(HuffmanNode* root) {
@@ -81,58 +85,91 @@ void freeTree(HuffmanNode* root) {
     delete root;
 }
 
+std::string bitStringToBinary(const std::string& bits) {
+    std::stringstream output;
+    for (size_t i = 0; i < bits.size(); i += 8) {
+        std::bitset<8> b(bits.substr(i, 8));
+        output.put(static_cast<char>(b.to_ulong()));
+    }
+    return output.str();
+}
+
+std::string binaryToBitString(const std::string& binary) {
+    std::string bitString;
+    for (char c : binary) {
+        bitString += std::bitset<8>(static_cast<unsigned char>(c)).to_string();
+    }
+    return bitString;
+}
+
 std::string compress(const std::string& input) {
     if (input.empty()) return "";
+    
     std::unordered_map<char, int> freqMap;
-    for (char c : input) freqMap[c]++;
-    HuffmanNode* root = buildHuffmanTree(freqMap);
-    std::unordered_map<char, std::string> codeMap;
-    generateHuffmanCodes(root, "", codeMap);
-    std::string encodedBits;
     for (char c : input) {
-        encodedBits += codeMap[c];
+        freqMap[c]++;
     }
-    std::string treeString;
-    serializeTree(root, treeString);
-    uint16_t treeSize = treeString.size();
-    uint32_t bitLength = encodedBits.size();
-    std::stringstream binaryEncoded;
-    for (size_t i = 0; i < encodedBits.size(); i += 8) {
-        std::bitset<8> bits(encodedBits.substr(i, 8));
-        binaryEncoded.put(static_cast<char>(bits.to_ulong()));
+    
+    HuffmanNode* treeRoot = buildHuffmanTree(freqMap);
+    std::unordered_map<char, std::string> huffmanCodes;
+    generateHuffmanCodes(treeRoot, "", huffmanCodes);
+    
+    std::string encodedData;
+    for (char c : input) {
+        encodedData += huffmanCodes[c];
     }
-    std::string header;
-    header += static_cast<char>(treeSize >> 8);
-    header += static_cast<char>(treeSize);
-    header += static_cast<char>(bitLength >> 24);
-    header += static_cast<char>(bitLength >> 16);
-    header += static_cast<char>(bitLength >> 8);
-    header += static_cast<char>(bitLength);
-    freeTree(root);
-    return header + treeString + binaryEncoded.str();
+    
+    std::string treeEncoding;
+    encodeTree(treeRoot, treeEncoding);
+    uint32_t treeSize = treeEncoding.size();
+    uint32_t bitSize = encodedData.size();
+    
+    std::string binaryData = bitStringToBinary(encodedData);
+    
+    std::string header(8, '\0');
+    for (int i = 0; i < 4; i++) {
+        header[i] = (treeSize >> (24 - i * 8)) & 0xFF;
+        header[i + 4] = (bitSize >> (24 - i * 8)) & 0xFF;
+    }
+    
+    freeTree(treeRoot);
+    return header + treeEncoding + binaryData;
 }
 
 std::string decompress(const std::string& compressed) {
-    if (compressed.size() < 6) return "";
-    size_t idx = 6;
-    uint16_t treeSize = (compressed[0] << 8) | compressed[1];
-    uint32_t bitLength = (compressed[2] << 24) | (compressed[3] << 16) | (compressed[4] << 8) | compressed[5];
-    HuffmanNode* root = deserializeTree(compressed.substr(idx, treeSize), idx);
-    std::string bitStream;
-    for (size_t i = idx + treeSize; i < compressed.size(); i++) {
-        std::bitset<8> bits(static_cast<unsigned char>(compressed[i]));
-        bitStream += bits.to_string();
+    if (compressed.size() < 8) return "";
+    
+    const unsigned char* data = reinterpret_cast<const unsigned char*>(compressed.data());
+    uint32_t treeSize = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
+    uint32_t bitSize = (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
+    
+    size_t treeStart = 8;
+    size_t treeEnd = treeStart + treeSize;
+    if (compressed.size() < treeEnd) return "";
+    
+    std::string treeEncoding = compressed.substr(treeStart, treeSize);
+    std::string binaryData = compressed.substr(treeEnd);
+    
+    size_t index = 0;
+    HuffmanNode* root = decodeTree(treeEncoding, index);
+    std::string bitString = binaryToBitString(binaryData);
+    if (bitString.size() > bitSize) {
+        bitString.resize(bitSize);
+    } else if (bitString.size() < bitSize) {
+        freeTree(root);
+        return "";
     }
-    bitStream.resize(bitLength);
+    
     std::string output;
     HuffmanNode* current = root;
-    for (char bit : bitStream) {
+    for (char bit : bitString) {
         current = (bit == '0') ? current->left : current->right;
         if (!current->left && !current->right) {
             output += current->data;
             current = root;
         }
     }
+    
     freeTree(root);
     return output;
 }
