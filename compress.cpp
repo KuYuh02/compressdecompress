@@ -107,24 +107,24 @@ std::string compress(const std::string& input) {
     uint32_t treeSize = treeString.size();
     uint32_t bitLength = encodedBits.size();
     
-    std::stringstream binaryEncoded;
+    std::string binaryEncoded;
     for (size_t i = 0; i < encodedBits.size(); i += 8) {
         std::bitset<8> bits(encodedBits.substr(i, 8));
-        binaryEncoded.put(static_cast<char>(bits.to_ulong()));
+        binaryEncoded += static_cast<char>(bits.to_ulong());
     }
 
-    std::string header(8, '\0');
-    header[0] = (treeSize >> 24) & 0xFF;
-    header[1] = (treeSize >> 16) & 0xFF;
-    header[2] = (treeSize >> 8) & 0xFF;
-    header[3] = treeSize & 0xFF;
-    header[4] = (bitLength >> 24) & 0xFF;
-    header[5] = (bitLength >> 16) & 0xFF;
-    header[6] = (bitLength >> 8) & 0xFF;
-    header[7] = bitLength & 0xFF;
+    std::string header;
+    header.append(1, static_cast<char>(treeSize >> 24));
+    header.append(1, static_cast<char>(treeSize >> 16));
+    header.append(1, static_cast<char>(treeSize >> 8));
+    header.append(1, static_cast<char>(treeSize));
+    header.append(1, static_cast<char>(bitLength >> 24));
+    header.append(1, static_cast<char>(bitLength >> 16));
+    header.append(1, static_cast<char>(bitLength >> 8));
+    header.append(1, static_cast<char>(bitLength));
 
     freeTree(root);
-    return header + treeString + binaryEncoded.str();
+    return header + treeString + binaryEncoded;
 }
 
 std::string decompress(const std::string& compressed) {
