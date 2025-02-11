@@ -6,6 +6,7 @@
 #include <sstream>
 #include <vector>
 #include <cstdint>
+#include <cstring>
 
 struct HuffmanNode {
     char data;
@@ -22,11 +23,10 @@ struct CompareNodes {
 
 void encodeTree(HuffmanNode* root, std::string& treeEncoding) {
     if (!root) return;
+    treeEncoding += root->left || root->right ? '0' : '1';
     if (!root->left && !root->right) {
-        treeEncoding += '1';
         treeEncoding += root->data;
     } else {
-        treeEncoding += '0';
         encodeTree(root->left, treeEncoding);
         encodeTree(root->right, treeEncoding);
     }
@@ -92,14 +92,15 @@ std::string compress(const std::string& input) {
     encodeTree(treeRoot, treeEncoding);
     uint32_t treeSize = treeEncoding.size();
     uint32_t bitSize = encodedData.size();
-    std::string binaryData;
-    for (size_t i = 0; i < encodedData.size(); i += 8) {
-        std::bitset<8> byte(encodedData.substr(i, 8));
-        binaryData += static_cast<char>(byte.to_ulong());
+    std::string binaryData((bitSize + 7) / 8, 0);
+    for (size_t i = 0; i < bitSize; i++) {
+        if (encodedData[i] == '1') {
+            binaryData[i / 8] |= (1 << (7 - (i % 8)));
+        }
     }
-    std::string header;
-    header.append(reinterpret_cast<char*>(&treeSize), sizeof(treeSize));
-    header.append(reinterpret_cast<char*>(&bitSize), sizeof(bitSize));
+    std::string header(8, 0);
+    std::memcpy(&header[0], &treeSize, sizeof(treeSize));
+    std::memcpy(&header[4], &bitSize, sizeof(bitSize));
     freeTree(treeRoot);
     return header + treeEncoding + binaryData;
 }
@@ -107,8 +108,7 @@ std::string compress(const std::string& input) {
 std::string decompress(const std::string& compressed) {
     if (compressed.size() < 8) return "";
     size_t index = 0;
-    uint32_t treeSize;
-    uint32_t bitSize;
+    uint32_t treeSize, bitSize;
     std::memcpy(&treeSize, &compressed[index], sizeof(treeSize));
     index += sizeof(treeSize);
     std::memcpy(&bitSize, &compressed[index], sizeof(bitSize));
@@ -119,10 +119,9 @@ std::string decompress(const std::string& compressed) {
     index = 0;
     HuffmanNode* root = decodeTree(treeEncoding, index);
     std::string bitString;
-    for (char c : binaryData) {
-        bitString += std::bitset<8>(static_cast<unsigned char>(c)).to_string();
+    for (size_t i = 0; i < bitSize; i++) {
+        bitString += (binaryData[i / 8] & (1 << (7 - (i % 8)))) ? '1' : '0';
     }
-    bitString.resize(bitSize);
     std::string output;
     HuffmanNode* current = root;
     for (char bit : bitString) {
