@@ -133,6 +133,7 @@ std::string compress(const std::string& input) {
     return header + treeEncoding + binaryData;
 }
 
+
 std::string decompress(const std::string& compressed) {
     if (compressed.size() < 8) return "";
     
