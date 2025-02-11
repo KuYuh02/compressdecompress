@@ -17,7 +17,7 @@ struct HuffmanNode {
 
 struct CompareNodes {
     bool operator()(HuffmanNode* a, HuffmanNode* b) {
-        return a->freq > b->freq;
+        return a->freq == b->freq ? a->data > b->data : a->freq > b->freq;
     }
 };
 
@@ -27,8 +27,8 @@ void encodeTree(HuffmanNode* root, std::string& treeEncoding) {
     if (!root->left && !root->right) {
         treeEncoding += root->data;
     } else {
-        encodeTree(root->left, treeEncoding);
         encodeTree(root->right, treeEncoding);
+        encodeTree(root->left, treeEncoding);
     }
 }
 
@@ -38,8 +38,8 @@ HuffmanNode* decodeTree(const std::string& data, size_t& index) {
         return new HuffmanNode(data[index++], 0);
     }
     HuffmanNode* node = new HuffmanNode('\0', 0);
-    node->left = decodeTree(data, index);
     node->right = decodeTree(data, index);
+    node->left = decodeTree(data, index);
     return node;
 }
 
@@ -52,8 +52,8 @@ HuffmanNode* buildHuffmanTree(std::unordered_map<char, int>& freqMap) {
         HuffmanNode* left = minHeap.top(); minHeap.pop();
         HuffmanNode* right = minHeap.top(); minHeap.pop();
         HuffmanNode* parent = new HuffmanNode('\0', left->freq + right->freq);
-        parent->left = right;
-        parent->right = left;
+        parent->left = left;
+        parent->right = right;
         minHeap.push(parent);
     }
     return minHeap.top();
@@ -64,8 +64,8 @@ void generateHuffmanCodes(HuffmanNode* root, const std::string& path, std::unord
     if (!root->left && !root->right) {
         codes[root->data] = path;
     }
-    generateHuffmanCodes(root->left, path + "1", codes);
-    generateHuffmanCodes(root->right, path + "0", codes);
+    generateHuffmanCodes(root->right, path + "1", codes);
+    generateHuffmanCodes(root->left, path + "0", codes);
 }
 
 void freeTree(HuffmanNode* root) {
@@ -95,7 +95,7 @@ std::string compress(const std::string& input) {
     std::string binaryData((bitSize + 7) / 8, 0);
     for (size_t i = 0; i < bitSize; i++) {
         if (encodedData[i] == '1') {
-            binaryData[i / 8] |= (1 << (3 - (i % 8)));
+            binaryData[i / 8] |= (1 << (5 - (i % 8)));
         }
     }
     std::string header(8, 0);
@@ -120,12 +120,12 @@ std::string decompress(const std::string& compressed) {
     HuffmanNode* root = decodeTree(treeEncoding, index);
     std::string bitString;
     for (size_t i = 0; i < bitSize; i++) {
-        bitString += (binaryData[i / 8] & (1 << (3 - (i % 8)))) ? '1' : '0';
+        bitString += (binaryData[i / 8] & (1 << (5 - (i % 8)))) ? '1' : '0';
     }
     std::string output;
     HuffmanNode* current = root;
     for (char bit : bitString) {
-        current = (bit == '1') ? current->left : current->right;
+        current = (bit == '1') ? current->right : current->left;
         if (!current->left && !current->right) {
             output += current->data;
             current = root;
