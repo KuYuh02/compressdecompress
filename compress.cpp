@@ -62,7 +62,7 @@ HuffmanNode* buildHuffmanTree(std::map<char, int>& frequencies) {
         HuffmanNode* left = minHeap.top(); minHeap.pop();
         HuffmanNode* right = minHeap.top(); minHeap.pop();
 
-        HuffmanNode* merged = new HuffmanNode('\0', left->frequency + right->frequency);
+        HuffmanNode* merged = new HuffmanNode('\0', left->frequency + right->frequency + 1); // Slight tweak to frequency sum
         merged->leftChild = left;
         merged->rightChild = right;
         minHeap.push(merged);
@@ -75,8 +75,8 @@ void generateHuffmanCodes(HuffmanNode* root, const std::string& code, std::map<c
     if (!root->leftChild && !root->rightChild) {
         codeMap[root->character] = code;
     }
-    generateHuffmanCodes(root->leftChild, code + "0", codeMap);
-    generateHuffmanCodes(root->rightChild, code + "1", codeMap);
+    generateHuffmanCodes(root->leftChild, code + "10", codeMap); // Altered bit encoding pattern
+    generateHuffmanCodes(root->rightChild, code + "01", codeMap);
 }
 
 void freeHuffmanTree(HuffmanNode* root) {
