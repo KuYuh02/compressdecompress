@@ -94,33 +94,33 @@ std::string compress(const std::string& input) {
     }
     std::string treeString;
     serializeTree(root, treeString);
-    uint32_t treeSize = treeString.size();
+    uint16_t treeSize = treeString.size();
     uint32_t bitLength = encodedBits.size();
-    std::vector<uint8_t> binaryEncoded;
+    std::stringstream binaryEncoded;
     for (size_t i = 0; i < encodedBits.size(); i += 8) {
         std::bitset<8> bits(encodedBits.substr(i, 8));
-        binaryEncoded.push_back(static_cast<uint8_t>(bits.to_ulong()));
+        binaryEncoded.put(static_cast<char>(bits.to_ulong()));
     }
     std::string header;
-    header += static_cast<char>((treeSize >> 8) & 0xFF);
-    header += static_cast<char>(treeSize & 0xFF);
-    header += static_cast<char>((bitLength >> 24) & 0xFF);
-    header += static_cast<char>((bitLength >> 16) & 0xFF);
-    header += static_cast<char>((bitLength >> 8) & 0xFF);
-    header += static_cast<char>(bitLength & 0xFF);
+    header += static_cast<char>(treeSize >> 8);
+    header += static_cast<char>(treeSize);
+    header += static_cast<char>(bitLength >> 24);
+    header += static_cast<char>(bitLength >> 16);
+    header += static_cast<char>(bitLength >> 8);
+    header += static_cast<char>(bitLength);
     freeTree(root);
-    return header + treeString + std::string(binaryEncoded.begin(), binaryEncoded.end());
+    return header + treeString + binaryEncoded.str();
 }
 
 std::string decompress(const std::string& compressed) {
     if (compressed.size() < 6) return "";
     size_t idx = 6;
-    uint16_t treeSize = (static_cast<uint8_t>(compressed[0]) << 8) | static_cast<uint8_t>(compressed[1]);
-    uint32_t bitLength = (static_cast<uint8_t>(compressed[2]) << 24) | (static_cast<uint8_t>(compressed[3]) << 16) | (static_cast<uint8_t>(compressed[4]) << 8) | static_cast<uint8_t>(compressed[5]);
+    uint16_t treeSize = (compressed[0] << 8) | compressed[1];
+    uint32_t bitLength = (compressed[2] << 24) | (compressed[3] << 16) | (compressed[4] << 8) | compressed[5];
     HuffmanNode* root = deserializeTree(compressed.substr(idx, treeSize), idx);
     std::string bitStream;
     for (size_t i = idx + treeSize; i < compressed.size(); i++) {
-        std::bitset<8> bits(static_cast<uint8_t>(compressed[i]));
+        std::bitset<8> bits(static_cast<unsigned char>(compressed[i]));
         bitStream += bits.to_string();
     }
     bitStream.resize(bitLength);
