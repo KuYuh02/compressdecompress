@@ -106,8 +106,8 @@ std::string compress(const std::string& input) {
 }
 
 std::string decompress(const std::string& compressed) {
-    if (compressed.size() < 9) return "";
-    size_t index = 0;
+    if (compressed.size() < 8) return "";
+    size_t index = 1;
     uint32_t treeSize, bitSize;
     std::memcpy(&treeSize, &compressed[index], sizeof(treeSize));
     index += sizeof(treeSize);
