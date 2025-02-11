@@ -36,14 +36,10 @@ void encodeTree(HuffmanNode* root, std::string& treeEncoding) {
 HuffmanNode* decodeTree(const std::string& data, size_t& index) {
     if (index >= data.size()) return nullptr;
     
-    if (data[index] == '1') {
-        index++;
-        HuffmanNode* node = new HuffmanNode(data[index], 0);
-        index++;
-        return node;
+    if (data[index++] == '1') {
+        return new HuffmanNode(data[index++], 0);
     }
     
-    index++;
     HuffmanNode* node = new HuffmanNode('\0', 0);
     node->left = decodeTree(data, index);
     node->right = decodeTree(data, index);
@@ -72,6 +68,7 @@ void generateHuffmanCodes(HuffmanNode* root, std::string path, std::unordered_ma
     
     if (!root->left && !root->right) {
         codes[root->data] = path;
+        return;
     }
     
     generateHuffmanCodes(root->left, path + "0", codes);
@@ -139,26 +136,19 @@ std::string compress(const std::string& input) {
 std::string decompress(const std::string& compressed) {
     if (compressed.size() < 8) return "";
     
-    const unsigned char* data = reinterpret_cast<const unsigned char*>(compressed.data());
-    uint32_t treeSize = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
-    uint32_t bitSize = (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
-    
-    size_t treeStart = 8;
-    size_t treeEnd = treeStart + treeSize;
-    if (compressed.size() < treeEnd) return "";
-    
-    std::string treeEncoding = compressed.substr(treeStart, treeSize);
-    std::string binaryData = compressed.substr(treeEnd);
-    
     size_t index = 0;
+    uint32_t treeSize = (compressed[index++] << 24) | (compressed[index++] << 16) | (compressed[index++] << 8) | compressed[index++];
+    uint32_t bitSize = (compressed[index++] << 24) | (compressed[index++] << 16) | (compressed[index++] << 8) | compressed[index++];
+    
+    if (compressed.size() < index + treeSize) return "";
+    
+    std::string treeEncoding = compressed.substr(index, treeSize);
+    std::string binaryData = compressed.substr(index + treeSize);
+    
+    index = 0;
     HuffmanNode* root = decodeTree(treeEncoding, index);
     std::string bitString = binaryToBitString(binaryData);
-    if (bitString.size() > bitSize) {
-        bitString.resize(bitSize);
-    } else if (bitString.size() < bitSize) {
-        freeTree(root);
-        return "";
-    }
+    if (bitString.size() > bitSize) bitString.resize(bitSize);
     
     std::string output;
     HuffmanNode* current = root;
