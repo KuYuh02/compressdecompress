@@ -36,13 +36,13 @@ HuffmanNode* constructTree(const std::unordered_map<char, int>& freqMap) {
     return pq.top();
 }
 
-void generateCodes(HuffmanNode* node, const std::string& path, std::unordered_map<char, std::string>& encodingMap) {
+void generateCodes(HuffmanNode* node, std::string path, std::unordered_map<char, std::string>& encodingMap) {
     if (!node) return;
     if (!node->left && !node->right) {
         encodingMap[node->symbol] = path;
     }
-    generateCodes(node->left, path + "0", encodingMap);
-    generateCodes(node->right, path + "1", encodingMap);
+    generateCodes(node->left, path + "1", encodingMap);
+    generateCodes(node->right, path + "0", encodingMap);
 }
 
 void serializeTree(HuffmanNode* node, std::string& structure) {
@@ -102,7 +102,7 @@ std::string decompress(const std::string& compressed) {
     std::string output;
     HuffmanNode* current = root;
     for (char bit : bitStream) {
-        current = (bit == '0') ? current->left : current->right;
+        current = (bit == '1') ? current->left : current->right;
         if (!current->left && !current->right) {
             output += current->symbol;
             current = root;
